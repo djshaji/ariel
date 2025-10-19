@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.github.djshaji.ariel</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Ariel</name>
+  <summary>LV2 Plugin Host</summary>
+  <description>
+    <p>
+      Ariel is a cross-platform LV2 plugin host built with GTK4 and lilv.
+      It provides a user-friendly interface for loading and managing LV2 plugins
+      with real-time audio processing capabilities.
+    </p>
+  </description>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Audio</category>
+  </categories>
+  <url type="homepage">https://github.com/djshaji/ariel</url>
+  <url type="bugtracker">https://github.com/djshaji/ariel/issues</url>
+</component>

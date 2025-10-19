@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Ariel
+Comment=LV2 Plugin Host
+Exec=@bindir@/ariel
+Icon=ariel
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;
+MimeType=audio/x-lv2-plugin;

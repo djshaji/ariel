@@ -180,38 +180,3 @@ bind_plugin_list_item(GtkListItemFactory *factory, GtkListItem *list_item, gpoin
     }
 }
 
-GtkWidget *
-ariel_create_transport(ArielWindow *window)
-{
-    GtkWidget *box;
-    GtkWidget *play_button;
-    GtkWidget *stop_button;
-    GtkWidget *record_button;
-    
-    box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-    gtk_widget_set_margin_start(box, 8);
-    gtk_widget_set_margin_end(box, 8);
-    gtk_widget_set_margin_top(box, 8);
-    gtk_widget_set_margin_bottom(box, 8);
-    gtk_widget_set_halign(box, GTK_ALIGN_CENTER);
-    
-    // Play button
-    play_button = gtk_button_new_from_icon_name("media-playback-start-symbolic");
-    gtk_widget_add_css_class(play_button, "circular");
-    gtk_widget_add_css_class(play_button, "suggested-action");
-    
-    // Stop button
-    stop_button = gtk_button_new_from_icon_name("media-playback-stop-symbolic");
-    gtk_widget_add_css_class(stop_button, "circular");
-    
-    // Record button
-    record_button = gtk_button_new_from_icon_name("media-record-symbolic");
-    gtk_widget_add_css_class(record_button, "circular");
-    gtk_widget_add_css_class(record_button, "destructive-action");
-    
-    gtk_box_append(GTK_BOX(box), play_button);
-    gtk_box_append(GTK_BOX(box), stop_button);
-    gtk_box_append(GTK_BOX(box), record_button);
-    
-    return box;
-}

@@ -9,7 +9,7 @@ static void on_drop_leave(GtkDropTarget *target, GtkWidget *plugins_box);
 
 // Callback for Remove All button
 static void
-on_remove_all_clicked(G_GNUC_UNUSED GtkButton *button, ArielWindow *window)
+on_remove_all_clicked(GtkButton *button, ArielWindow *window)
 {
     if (!window) {
         g_warning("No window reference for remove all button");
@@ -29,40 +29,40 @@ on_remove_all_clicked(G_GNUC_UNUSED GtkButton *button, ArielWindow *window)
     }
     
     // Deactivate and remove all active plugins
-    while (g_list_model_get_n_items(G_LIST_MODEL(manager->active_plugin_store)) > 0) {
+    for (guint i = 0; i < n_active; i++) {
         ArielActivePlugin *plugin = g_list_model_get_item(G_LIST_MODEL(manager->active_plugin_store), 0);
         if (plugin) {
-            // Deactivate plugin processing
+            g_print("Removing plugin: %s\n", ariel_active_plugin_get_name(plugin));
             ariel_active_plugin_deactivate(plugin);
             g_object_unref(plugin);
         }
-        
-        // Remove from store
-        g_list_store_remove(manager->active_plugin_store, 0);
     }
     
-    // Remove all items at once to be safe
+    // Clear the store
     g_list_store_remove_all(manager->active_plugin_store);
     
     // Update the UI
     ariel_update_active_plugins_view(window);
+    
+    g_print("Removed all active plugins\n");
 }
 
-// Callback for individual plugin remove buttons
+// Callback for individual plugin remove button
 static void
-on_remove_plugin_clicked(G_GNUC_UNUSED GtkButton *button, ArielWindow *window)
+on_remove_plugin_clicked(GtkButton *button, ArielWindow *window)
 {
-    if (!window) {
-        return;
-    }
-    
-    // Get the active plugin associated with this button
-    ArielActivePlugin *plugin = g_object_get_data(G_OBJECT(button), "active-plugin");
+    ArielActivePlugin *plugin = g_object_get_data(G_OBJECT(button), "plugin");
     if (!plugin) {
+        g_warning("No plugin associated with remove button");
         return;
     }
     
-    // Get plugin manager
+    if (!window) {
+        g_warning("No window reference for remove button");
+        return;
+    }
+    
+    // Get plugin manager and remove the specific plugin
     ArielPluginManager *manager = ariel_app_get_plugin_manager(window->app);
     if (!manager || !manager->active_plugin_store) {
         return;
@@ -73,7 +73,7 @@ on_remove_plugin_clicked(G_GNUC_UNUSED GtkButton *button, ArielWindow *window)
     for (guint i = 0; i < n_active; i++) {
         ArielActivePlugin *store_plugin = g_list_model_get_item(G_LIST_MODEL(manager->active_plugin_store), i);
         if (store_plugin == plugin) {
-            // Deactivate plugin processing
+            g_print("Removing plugin: %s\n", ariel_active_plugin_get_name(plugin));
             ariel_active_plugin_deactivate(plugin);
             g_list_store_remove(manager->active_plugin_store, i);
             g_object_unref(store_plugin);
@@ -190,11 +190,7 @@ ariel_create_active_plugins_view(ArielWindow *window)
     GtkWidget *separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
     gtk_box_append(GTK_BOX(main_box), separator);
     
-    // Create container for active plugins
-    GtkWidget *plugins_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
-    gtk_box_append(GTK_BOX(main_box), plugins_box);
-    gtk_widget_set_vexpand(plugins_box, TRUE);
-    gtk_widget_set_hexpand(plugins_box, TRUE);
+    // Create container for active plugins\n    GtkWidget *plugins_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);\n    gtk_box_append(GTK_BOX(main_box), plugins_box);\n    gtk_widget_set_vexpand(plugins_box, TRUE);\n    gtk_widget_set_hexpand(plugins_box, TRUE);
     
     // Store reference to plugins container for updates
     g_object_set_data(G_OBJECT(scrolled), "plugins-box", plugins_box);
@@ -211,65 +207,6 @@ ariel_create_active_plugins_view(ArielWindow *window)
     gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), main_box);
     
     return scrolled;
-}
-
-// Update active plugins view  
-void
-ariel_update_active_plugins_view(ArielWindow *window)
-{
-    if (!window) return;
-    
-    // Find the active plugins container in the window
-    GtkWidget *active_plugins_view = window->active_plugins;
-    if (!active_plugins_view) return;
-    
-    GtkWidget *plugins_box = g_object_get_data(G_OBJECT(active_plugins_view), "plugins-box");
-    if (!plugins_box) return;
-    
-    // Clear existing plugins
-    GtkWidget *child = gtk_widget_get_first_child(plugins_box);
-    while (child) {
-        GtkWidget *next = gtk_widget_get_next_sibling(child);
-        gtk_box_remove(GTK_BOX(plugins_box), child);
-        child = next;
-    }
-    
-    // Get active plugins from plugin manager
-    ArielPluginManager *manager = ariel_app_get_plugin_manager(window->app);
-    if (!manager || !manager->active_plugin_store) {
-        g_warning("Plugin manager or active plugin store not available");
-        return;
-    }
-    
-    // Defensive check to ensure active_plugin_store is a valid GListModel
-    if (!G_IS_LIST_MODEL(manager->active_plugin_store)) {
-        g_warning("Active plugin store is not a valid GListModel");
-        return;
-    }
-    
-    guint n_active = g_list_model_get_n_items(G_LIST_MODEL(manager->active_plugin_store));
-    
-    if (n_active == 0) {
-        // Show "no active plugins" message
-        GtkWidget *empty_label = gtk_label_new("No active plugins\nClick on a plugin in the left panel to load it");
-        gtk_label_set_justify(GTK_LABEL(empty_label), GTK_JUSTIFY_CENTER);
-        gtk_widget_add_css_class(empty_label, "dim-label");
-        gtk_widget_set_vexpand(empty_label, TRUE);
-        gtk_widget_set_valign(empty_label, GTK_ALIGN_CENTER);
-        gtk_box_append(GTK_BOX(plugins_box), empty_label);
-    } else {
-        // Add widgets for each active plugin
-        for (guint i = 0; i < n_active; i++) {
-            ArielActivePlugin *plugin = g_list_model_get_item(G_LIST_MODEL(manager->active_plugin_store), i);
-            if (plugin) {
-                GtkWidget *plugin_widget = ariel_create_active_plugin_widget(plugin, window);
-                if (plugin_widget) {
-                    gtk_box_append(GTK_BOX(plugins_box), plugin_widget);
-                }
-                g_object_unref(plugin);
-            }
-        }
-    }
 }
 
 // Create widget for a single active plugin
@@ -309,20 +246,84 @@ ariel_create_active_plugin_widget(ArielActivePlugin *plugin, ArielWindow *window
     GtkWidget *remove_btn = gtk_button_new_with_label("Remove");
     gtk_widget_add_css_class(remove_btn, "destructive-action");
     gtk_widget_add_css_class(remove_btn, "pill");
-    g_object_set_data(G_OBJECT(remove_btn), "active-plugin", plugin);
-    g_signal_connect(remove_btn, "clicked", 
+    
+    // Store plugin reference with the button for removal callback
+    g_object_set_data(G_OBJECT(remove_btn), "plugin", plugin);
+    g_signal_connect(remove_btn, "clicked",
                      G_CALLBACK(on_remove_plugin_clicked), window);
+    
     gtk_box_append(GTK_BOX(header_box), remove_btn);
     
     gtk_box_append(GTK_BOX(main_box), header_box);
     
+    // Create separator
+    GtkWidget *separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+    gtk_box_append(GTK_BOX(main_box), separator);
+    
     // Create parameter controls
-    GtkWidget *params_widget = ariel_create_parameter_controls(plugin);
-    if (params_widget) {
-        gtk_box_append(GTK_BOX(main_box), params_widget);
+    GtkWidget *param_controls = ariel_create_parameter_controls(plugin);
+    if (param_controls) {
+        gtk_box_append(GTK_BOX(main_box), param_controls);
     }
     
     gtk_frame_set_child(GTK_FRAME(frame), main_box);
     
     return frame;
 }
+
+// Update active plugins view
+void
+ariel_update_active_plugins_view(ArielWindow *window)
+{
+    if (!window->active_plugins) return;
+    
+    // Get plugins container
+    GtkWidget *plugins_box = g_object_get_data(G_OBJECT(window->active_plugins), "plugins-box");
+    if (!plugins_box) return;
+    
+    // Clear existing children
+    GtkWidget *child = gtk_widget_get_first_child(plugins_box);
+    while (child) {
+        GtkWidget *next = gtk_widget_get_next_sibling(child);
+        gtk_box_remove(GTK_BOX(plugins_box), child);
+        child = next;
+    }
+    
+    // Get active plugins from plugin manager
+    ArielPluginManager *manager = ariel_app_get_plugin_manager(window->app);
+    if (!manager || !manager->active_plugin_store) {
+        g_warning("Plugin manager or active plugin store not available");
+        return;
+    }
+    
+    // Defensive check to ensure active_plugin_store is a valid GListModel
+    if (!G_IS_LIST_MODEL(manager->active_plugin_store)) {
+        g_warning("Active plugin store is not a valid GListModel");
+        return;
+    }
+    
+    guint n_active = g_list_model_get_n_items(G_LIST_MODEL(manager->active_plugin_store));
+    
+    if (n_active == 0) {
+        // Show "no active plugins" message
+        GtkWidget *empty_label = gtk_label_new("No active plugins\\nClick on a plugin in the left panel to load it");
+        gtk_label_set_justify(GTK_LABEL(empty_label), GTK_JUSTIFY_CENTER);
+        gtk_widget_add_css_class(empty_label, "dim-label");
+        gtk_widget_set_vexpand(empty_label, TRUE);
+        gtk_widget_set_valign(empty_label, GTK_ALIGN_CENTER);
+        gtk_box_append(GTK_BOX(plugins_box), empty_label);
+    } else {
+        // Add widgets for each active plugin
+        for (guint i = 0; i < n_active; i++) {
+            ArielActivePlugin *plugin = g_list_model_get_item(G_LIST_MODEL(manager->active_plugin_store), i);
+            if (plugin) {
+                GtkWidget *plugin_widget = ariel_create_active_plugin_widget(plugin, window);
+                if (plugin_widget) {
+                    gtk_box_append(GTK_BOX(plugins_box), plugin_widget);
+                }
+                g_object_unref(plugin);
+            }
+        }
+    }
+}
+

@@ -32,6 +32,13 @@ struct _ArielWindow {
     GtkWidget *mixer_box;
     GtkWidget *transport_box;
     
+    // Transport controls
+    GtkWidget *play_button;
+    GtkWidget *stop_button;
+    GtkWidget *record_button;
+    gboolean is_playing;
+    gboolean is_recording;
+    
     // References
     ArielApp *app;
 };
@@ -84,6 +91,10 @@ GtkWidget *ariel_create_plugin_list(ArielWindow *window);
 GtkWidget *ariel_create_mixer(ArielWindow *window);
 GtkWidget *ariel_create_mixer_channel(const char *name, int channel_id);
 GtkWidget *ariel_create_transport(ArielWindow *window);
+void ariel_transport_play(ArielWindow *window);
+void ariel_transport_stop(ArielWindow *window);
+void ariel_transport_record(ArielWindow *window);
+void ariel_transport_update_ui(ArielWindow *window);
 
 // Active Plugins View
 GtkWidget *ariel_create_active_plugins_view(ArielWindow *window);

@@ -8,6 +8,7 @@ ariel_audio_engine_new(void)
     engine->active = FALSE;
     engine->sample_rate = 44100.0f;
     engine->buffer_size = 1024;
+    engine->plugin_manager = NULL;
     return engine;
 }
 
@@ -95,6 +96,17 @@ ariel_audio_engine_free(ArielAudioEngine *engine)
 {
     if (!engine) return;
     
-    ariel_audio_engine_stop(engine);
+    if (engine->active) {
+        ariel_audio_engine_stop(engine);
+    }
+    
     g_free(engine);
+}
+
+void
+ariel_audio_engine_set_plugin_manager(ArielAudioEngine *engine, ArielPluginManager *manager)
+{
+    if (engine) {
+        engine->plugin_manager = manager;
+    }
 }

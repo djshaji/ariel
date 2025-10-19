@@ -16,7 +16,8 @@ ariel_app_init(ArielApp *app)
 {
     // Initialize audio engine and plugin manager
     app->audio_engine = ariel_audio_engine_new();
-    app->plugin_manager = ariel_plugin_manager_new();
+    app->plugin_manager = ariel_plugin_manager_new();// Connect plugin manager to audio engine for real-time processing\n    
+    ariel_audio_engine_set_plugin_manager(app->audio_engine, app->plugin_manager);
 }
 
 static void

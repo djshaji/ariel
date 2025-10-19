@@ -51,6 +51,7 @@ struct _ArielAudioEngine {
     gboolean active;
     gfloat sample_rate;
     gint buffer_size;
+    ArielPluginManager *plugin_manager;  // Reference to plugin manager for processing
 };
 
 #define ARIEL_TYPE_PLUGIN_INFO (ariel_plugin_info_get_type())
@@ -110,6 +111,7 @@ ArielAudioEngine *ariel_audio_engine_new(void);
 gboolean ariel_audio_engine_start(ArielAudioEngine *engine);
 void ariel_audio_engine_stop(ArielAudioEngine *engine);
 void ariel_audio_engine_free(ArielAudioEngine *engine);
+void ariel_audio_engine_set_plugin_manager(ArielAudioEngine *engine, ArielPluginManager *manager);
 
 // Plugin Info
 ArielPluginInfo *ariel_plugin_info_new(const LilvPlugin *plugin);

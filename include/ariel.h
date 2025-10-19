@@ -12,6 +12,7 @@ typedef struct _ArielApp ArielApp;
 typedef struct _ArielWindow ArielWindow;
 typedef struct _ArielAudioEngine ArielAudioEngine;
 typedef struct _ArielPluginManager ArielPluginManager;
+typedef struct _ArielPluginInfo ArielPluginInfo;
 
 #define ARIEL_TYPE_APP (ariel_app_get_type())
 G_DECLARE_FINAL_TYPE(ArielApp, ariel_app, ARIEL, APP, GtkApplication)
@@ -42,6 +43,9 @@ struct _ArielAudioEngine {
     gfloat sample_rate;
     gint buffer_size;
 };
+
+#define ARIEL_TYPE_PLUGIN_INFO (ariel_plugin_info_get_type())
+G_DECLARE_FINAL_TYPE(ArielPluginInfo, ariel_plugin_info, ARIEL, PLUGIN_INFO, GObject)
 
 // Plugin manager structure
 struct _ArielPluginManager {
@@ -78,6 +82,12 @@ ArielAudioEngine *ariel_audio_engine_new(void);
 gboolean ariel_audio_engine_start(ArielAudioEngine *engine);
 void ariel_audio_engine_stop(ArielAudioEngine *engine);
 void ariel_audio_engine_free(ArielAudioEngine *engine);
+
+// Plugin Info
+ArielPluginInfo *ariel_plugin_info_new(const LilvPlugin *plugin);
+const char *ariel_plugin_info_get_name(ArielPluginInfo *info);
+const char *ariel_plugin_info_get_author(ArielPluginInfo *info);
+const char *ariel_plugin_info_get_uri(ArielPluginInfo *info);
 
 // Plugin Manager
 ArielPluginManager *ariel_plugin_manager_new(void);

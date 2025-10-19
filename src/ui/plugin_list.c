@@ -72,14 +72,18 @@ setup_plugin_list_item(GtkListItemFactory *factory, GtkListItem *list_item, gpoi
 void
 bind_plugin_list_item(GtkListItemFactory *factory, GtkListItem *list_item, gpointer user_data)
 {
-    // TODO: Implement binding when plugin data structure is defined
+    ArielPluginInfo *plugin_info = gtk_list_item_get_item(list_item);
+    if (!plugin_info || !ARIEL_IS_PLUGIN_INFO(plugin_info)) {
+        return;
+    }
+    
     GtkWidget *box = gtk_list_item_get_child(list_item);
     GtkWidget *name_label = gtk_widget_get_first_child(box);
     GtkWidget *author_label = gtk_widget_get_last_child(box);
     
-    // Placeholder data
-    gtk_label_set_text(GTK_LABEL(name_label), "Plugin Name");
-    gtk_label_set_text(GTK_LABEL(author_label), "Plugin Author");
+    // Set actual plugin data
+    gtk_label_set_text(GTK_LABEL(name_label), ariel_plugin_info_get_name(plugin_info));
+    gtk_label_set_text(GTK_LABEL(author_label), ariel_plugin_info_get_author(plugin_info));
 }
 
 GtkWidget *

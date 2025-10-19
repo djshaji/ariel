@@ -21,9 +21,19 @@ ariel_jack_process_callback(jack_nframes_t nframes, void *arg)
         guint n_active = g_list_model_get_n_items(G_LIST_MODEL(engine->plugin_manager->active_plugin_store));
         
         if (n_active > 0) {
-            // Use input as starting point
-            jack_default_audio_sample_t *current_L = input_L;
-            jack_default_audio_sample_t *current_R = input_R;
+            // Create temporary buffers for plugin chaining
+            static float temp_buffer_L[8192];
+            static float temp_buffer_R[8192];
+            
+            // Initialize with input
+            if (input_L) memcpy(temp_buffer_L, input_L, sizeof(float) * nframes);
+            else memset(temp_buffer_L, 0, sizeof(float) * nframes);
+            
+            if (input_R) memcpy(temp_buffer_R, input_R, sizeof(float) * nframes);
+            else memset(temp_buffer_R, 0, sizeof(float) * nframes);
+            
+            float *current_L = temp_buffer_L;
+            float *current_R = temp_buffer_R;
             
             // Process each active plugin in series
             for (guint i = 0; i < n_active; i++) {
@@ -31,22 +41,28 @@ ariel_jack_process_callback(jack_nframes_t nframes, void *arg)
                     G_LIST_MODEL(engine->plugin_manager->active_plugin_store), i);
                 
                 if (plugin && ariel_active_plugin_is_active(plugin)) {
-                    // Connect audio buffers to plugin
+                    // Connect current buffers as input and output for in-place processing
                     float *input_buffers[2] = { current_L, current_R };
-                    float *output_buffers[2] = { output_L, output_R };
+                    float *output_buffers[2] = { current_L, current_R };
                     
                     ariel_active_plugin_connect_audio_ports(plugin, input_buffers, output_buffers);
                     
                     // Process this plugin
                     ariel_active_plugin_process(plugin, nframes);
                     
-                    // Output becomes input for next plugin
-                    current_L = output_L;
-                    current_R = output_R;
+                    // For mono plugins, copy mono output to both channels
+                    if (ariel_active_plugin_is_mono(plugin)) {
+                        // Mono plugin - duplicate output to right channel
+                        memcpy(current_R, current_L, sizeof(float) * nframes);
+                    }
                 }
                 
                 if (plugin) g_object_unref(plugin);
             }
+            
+            // Copy final result to output
+            if (output_L) memcpy(output_L, current_L, sizeof(float) * nframes);
+            if (output_R) memcpy(output_R, current_R, sizeof(float) * nframes);
         } else {
             // No active plugins, pass through input to output
             if (input_L && output_L) {

@@ -137,6 +137,9 @@ uint32_t ariel_active_plugin_get_num_parameters(ArielActivePlugin *plugin);
 float ariel_active_plugin_get_parameter(ArielActivePlugin *plugin, uint32_t index);
 void ariel_active_plugin_set_parameter(ArielActivePlugin *plugin, uint32_t index, float value);
 uint32_t ariel_active_plugin_get_control_port_index(ArielActivePlugin *plugin, uint32_t param_index);
+gboolean ariel_active_plugin_is_mono(ArielActivePlugin *plugin);
+guint ariel_active_plugin_get_n_audio_inputs(ArielActivePlugin *plugin);
+guint ariel_active_plugin_get_n_audio_outputs(ArielActivePlugin *plugin);
 GtkWidget *ariel_create_parameter_controls(ArielActivePlugin *plugin);
 
 // Configuration

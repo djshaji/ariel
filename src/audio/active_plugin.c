@@ -400,19 +400,46 @@ ariel_active_plugin_connect_audio_ports(ArielActivePlugin *plugin,
     
     // Connect audio input ports using stored indices
     if (input_buffers && plugin->audio_input_port_indices) {
-        for (guint i = 0; i < plugin->n_audio_inputs && i < 2; i++) {
+        for (guint i = 0; i < plugin->n_audio_inputs; i++) {
+            // For mono plugins, connect left channel to mono input
+            // For stereo plugins, connect both channels
+            guint buffer_index = (i < 2) ? i : 1; // Use right channel for additional inputs
             lilv_instance_connect_port(plugin->instance, 
                                      plugin->audio_input_port_indices[i], 
-                                     input_buffers[i]);
+                                     input_buffers[buffer_index]);
         }
     }
     
     // Connect audio output ports using stored indices  
     if (output_buffers && plugin->audio_output_port_indices) {
-        for (guint i = 0; i < plugin->n_audio_outputs && i < 2; i++) {
+        for (guint i = 0; i < plugin->n_audio_outputs; i++) {
+            // For mono plugins, connect mono output to left channel
+            // For stereo plugins, connect both channels
+            guint buffer_index = (i < 2) ? i : 1; // Use right channel for additional outputs
             lilv_instance_connect_port(plugin->instance, 
                                      plugin->audio_output_port_indices[i], 
-                                     output_buffers[i]);
+                                     output_buffers[buffer_index]);
         }
     }
+}
+
+gboolean
+ariel_active_plugin_is_mono(ArielActivePlugin *plugin)
+{
+    if (!plugin) return FALSE;
+    
+    // Consider mono if it has exactly 1 audio input and 1 audio output
+    return (plugin->n_audio_inputs == 1 && plugin->n_audio_outputs == 1);
+}
+
+guint
+ariel_active_plugin_get_n_audio_inputs(ArielActivePlugin *plugin)
+{
+    return plugin ? plugin->n_audio_inputs : 0;
+}
+
+guint
+ariel_active_plugin_get_n_audio_outputs(ArielActivePlugin *plugin)
+{
+    return plugin ? plugin->n_audio_outputs : 0;
 }

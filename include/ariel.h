@@ -85,6 +85,11 @@ GtkWidget *ariel_create_mixer(ArielWindow *window);
 GtkWidget *ariel_create_mixer_channel(const char *name, int channel_id);
 GtkWidget *ariel_create_transport(ArielWindow *window);
 
+// Active Plugins View
+GtkWidget *ariel_create_active_plugins_view(ArielWindow *window);
+GtkWidget *ariel_create_active_plugin_widget(ArielActivePlugin *plugin, ArielWindow *window);
+void ariel_update_active_plugins_view(ArielWindow *window);
+
 // Plugin list callbacks
 void setup_plugin_list_item(GtkListItemFactory *factory, GtkListItem *list_item, gpointer user_data);
 void bind_plugin_list_item(GtkListItemFactory *factory, GtkListItem *list_item, gpointer user_data);
@@ -108,10 +113,18 @@ const char *ariel_plugin_info_get_uri(ArielPluginInfo *info);
 ArielActivePlugin *ariel_active_plugin_new(ArielPluginInfo *plugin_info, ArielAudioEngine *engine);
 void ariel_active_plugin_process(ArielActivePlugin *plugin, jack_nframes_t nframes);
 void ariel_active_plugin_activate(ArielActivePlugin *plugin);
-void ariel_active_plugin_deactivate(ArielActivePlugin *plugin);
+void ariel_active_plugin_deactivate(ArielActivePlugin *plugin);  
 const char *ariel_active_plugin_get_name(ArielActivePlugin *plugin);
 gboolean ariel_active_plugin_is_active(ArielActivePlugin *plugin);
 void ariel_active_plugin_connect_audio_ports(ArielActivePlugin *plugin, float **input_buffers, float **output_buffers);
+
+// Parameter Control
+const LilvPlugin *ariel_active_plugin_get_lilv_plugin(ArielActivePlugin *plugin);
+uint32_t ariel_active_plugin_get_num_parameters(ArielActivePlugin *plugin);
+float ariel_active_plugin_get_parameter(ArielActivePlugin *plugin, uint32_t index);
+void ariel_active_plugin_set_parameter(ArielActivePlugin *plugin, uint32_t index, float value);
+uint32_t ariel_active_plugin_get_control_port_index(ArielActivePlugin *plugin, uint32_t param_index);
+GtkWidget *ariel_create_parameter_controls(ArielActivePlugin *plugin);
 
 // Configuration
 ArielConfig *ariel_config_new(void);

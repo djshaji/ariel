@@ -27,11 +27,13 @@ sources = [
   'src/ui/plugin_list.c',
   'src/ui/mixer.c',
   'src/ui/transport.c',
+  'src/ui/parameter_controls.c',
+  'src/ui/active_plugins.c',
   'src/audio/engine.c',
   'src/audio/plugin_manager.c',
   'src/audio/jack_client.c',
   'src/audio/config.c',
-  'src/audio/active_plugin.c'
+  'src/audio/active_plugin.c'  
 ]
 
 # Build executable

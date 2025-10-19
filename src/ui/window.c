@@ -49,9 +49,7 @@ ariel_window_setup_ui(ArielWindow *window)
     gtk_paned_set_end_child(GTK_PANED(window->main_paned), right_paned);
     
     // Active plugins list (top right)
-    window->active_plugins = gtk_scrolled_window_new();
-    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(window->active_plugins),
-                                   GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+    window->active_plugins = ariel_create_active_plugins_view(window);
     gtk_paned_set_start_child(GTK_PANED(right_paned), window->active_plugins);
     
     // Mixer (bottom right)
@@ -61,4 +59,15 @@ ariel_window_setup_ui(ArielWindow *window)
     // Set paned positions
     gtk_paned_set_position(GTK_PANED(window->main_paned), 300);
     gtk_paned_set_position(GTK_PANED(right_paned), 400);
+    
+    // Auto-start the audio engine
+    ArielAudioEngine *engine = ariel_app_get_audio_engine(window->app);
+    if (ariel_audio_engine_start(engine)) {
+        gtk_button_set_label(GTK_BUTTON(window->audio_toggle), "Audio: ON");
+        gtk_widget_add_css_class(GTK_WIDGET(window->audio_toggle), "suggested-action");
+        gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(window->audio_toggle), TRUE);
+        g_print("Audio engine auto-started successfully\n");
+    } else {
+        g_warning("Failed to auto-start audio engine");
+    }
 }

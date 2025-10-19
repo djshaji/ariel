@@ -110,29 +110,80 @@ ariel_active_plugin_new(ArielPluginInfo *plugin_info, ArielAudioEngine *engine)
         return NULL;
     }
     
-    // For now, assume stereo I/O for simplicity
-    // TODO: Implement proper port introspection with world context
-    plugin->n_audio_inputs = 2;
-    plugin->n_audio_outputs = 2;
+    // Proper port introspection
+    plugin->n_audio_inputs = 0;
+    plugin->n_audio_outputs = 0;
     plugin->n_control_inputs = 0;
     plugin->n_control_outputs = 0;
+    
+    // Get the lilv world from the plugin manager (we need world context for URI creation)
+    ArielPluginManager *manager = ariel_app_get_plugin_manager(
+        ARIEL_APP(g_application_get_default()));
+    LilvWorld *world = manager->world;
+    
+    // Create URI nodes for port types
+    LilvNode *audio_port_uri = lilv_new_uri(world, LILV_URI_AUDIO_PORT);
+    LilvNode *control_port_uri = lilv_new_uri(world, LILV_URI_CONTROL_PORT);
+    LilvNode *input_port_uri = lilv_new_uri(world, LILV_URI_INPUT_PORT);
+    LilvNode *output_port_uri = lilv_new_uri(world, LILV_URI_OUTPUT_PORT);
+    
+    // Count ports by type
+    const uint32_t num_ports = lilv_plugin_get_num_ports(plugin->lilv_plugin);
+    for (uint32_t i = 0; i < num_ports; i++) {
+        const LilvPort *port = lilv_plugin_get_port_by_index(plugin->lilv_plugin, i);
+        
+        if (lilv_port_is_a(plugin->lilv_plugin, port, audio_port_uri)) {
+            if (lilv_port_is_a(plugin->lilv_plugin, port, input_port_uri)) {
+                plugin->n_audio_inputs++;
+            } else if (lilv_port_is_a(plugin->lilv_plugin, port, output_port_uri)) {
+                plugin->n_audio_outputs++;
+            }
+        } else if (lilv_port_is_a(plugin->lilv_plugin, port, control_port_uri)) {
+            if (lilv_port_is_a(plugin->lilv_plugin, port, input_port_uri)) {
+                plugin->n_control_inputs++;
+            } else if (lilv_port_is_a(plugin->lilv_plugin, port, output_port_uri)) {
+                plugin->n_control_outputs++;
+            }
+        }
+    }
+    
+    // Free URI nodes
+    lilv_node_free(audio_port_uri);
+    lilv_node_free(control_port_uri);
+    lilv_node_free(input_port_uri);
+    lilv_node_free(output_port_uri);
     
     g_print("Plugin %s: %u audio inputs, %u audio outputs, %u control inputs, %u control outputs\n",
             plugin->name, plugin->n_audio_inputs, plugin->n_audio_outputs,
             plugin->n_control_inputs, plugin->n_control_outputs);
     
-    // Allocate port arrays
-    if (plugin->n_audio_inputs > 0) {
-        plugin->audio_input_buffers = g_malloc0(sizeof(float*) * plugin->n_audio_inputs);
-    }
-    if (plugin->n_audio_outputs > 0) {
-        plugin->audio_output_buffers = g_malloc0(sizeof(float*) * plugin->n_audio_outputs);
-    }
+    // Initialize control port values
+    plugin->control_input_values = g_malloc0(plugin->n_control_inputs * sizeof(float));
+    plugin->control_output_values = g_malloc0(plugin->n_control_outputs * sizeof(float));
+    
+    // Initialize control input values with defaults
     if (plugin->n_control_inputs > 0) {
-        plugin->control_input_values = g_malloc0(sizeof(float) * plugin->n_control_inputs);
-    }
-    if (plugin->n_control_outputs > 0) {
-        plugin->control_output_values = g_malloc0(sizeof(float) * plugin->n_control_outputs);
+        uint32_t control_idx = 0;
+        for (uint32_t i = 0; i < num_ports && control_idx < plugin->n_control_inputs; i++) {
+            const LilvPort *port = lilv_plugin_get_port_by_index(plugin->lilv_plugin, i);
+            
+            if (lilv_port_is_a(plugin->lilv_plugin, port, lilv_new_uri(world, LILV_URI_CONTROL_PORT)) &&
+                lilv_port_is_a(plugin->lilv_plugin, port, lilv_new_uri(world, LILV_URI_INPUT_PORT))) {
+                
+                // Get default value
+                LilvNode *default_node = NULL;
+                lilv_port_get_range(plugin->lilv_plugin, port, &default_node, NULL, NULL);
+                
+                if (default_node) {
+                    plugin->control_input_values[control_idx] = lilv_node_as_float(default_node);
+                    lilv_node_free(default_node);
+                } else {
+                    plugin->control_input_values[control_idx] = 0.0f;
+                }
+                
+                control_idx++;
+            }
+        }
     }
     
     // Create plugin instance
@@ -190,7 +241,75 @@ ariel_active_plugin_deactivate(ArielActivePlugin *plugin)
 const char *
 ariel_active_plugin_get_name(ArielActivePlugin *plugin)
 {
-    return plugin ? plugin->name : NULL;
+    g_return_val_if_fail(ARIEL_IS_ACTIVE_PLUGIN(plugin), NULL);
+    return plugin->name;
+}
+
+const LilvPlugin *
+ariel_active_plugin_get_lilv_plugin(ArielActivePlugin *plugin)
+{
+    g_return_val_if_fail(ARIEL_IS_ACTIVE_PLUGIN(plugin), NULL);
+    return plugin->lilv_plugin;
+}
+
+uint32_t
+ariel_active_plugin_get_num_parameters(ArielActivePlugin *plugin)
+{
+    g_return_val_if_fail(ARIEL_IS_ACTIVE_PLUGIN(plugin), 0);
+    return plugin->n_control_inputs;
+}
+
+float
+ariel_active_plugin_get_parameter(ArielActivePlugin *plugin, uint32_t index)
+{
+    g_return_val_if_fail(ARIEL_IS_ACTIVE_PLUGIN(plugin), 0.0f);
+    g_return_val_if_fail(index < plugin->n_control_inputs, 0.0f);
+    
+    if (plugin->control_input_values) {
+        return plugin->control_input_values[index];
+    }
+    return 0.0f;
+}
+
+void
+ariel_active_plugin_set_parameter(ArielActivePlugin *plugin, uint32_t index, float value)
+{
+    g_return_if_fail(ARIEL_IS_ACTIVE_PLUGIN(plugin));
+    g_return_if_fail(index < plugin->n_control_inputs);
+    
+    if (plugin->control_input_values) {
+        plugin->control_input_values[index] = value;
+    }
+}
+
+uint32_t
+ariel_active_plugin_get_control_port_index(ArielActivePlugin *plugin, uint32_t param_index)
+{
+    g_return_val_if_fail(ARIEL_IS_ACTIVE_PLUGIN(plugin), 0);
+    g_return_val_if_fail(param_index < plugin->n_control_inputs, 0);
+    
+    // Find the actual port index for the nth control input
+    ArielPluginManager *manager = ariel_app_get_plugin_manager(
+        ARIEL_APP(g_application_get_default()));
+    LilvWorld *world = manager->world;
+    
+    const uint32_t num_ports = lilv_plugin_get_num_ports(plugin->lilv_plugin);
+    uint32_t control_idx = 0;
+    
+    for (uint32_t i = 0; i < num_ports; i++) {
+        const LilvPort *port = lilv_plugin_get_port_by_index(plugin->lilv_plugin, i);
+        
+        if (lilv_port_is_a(plugin->lilv_plugin, port, lilv_new_uri(world, LILV_URI_CONTROL_PORT)) &&
+            lilv_port_is_a(plugin->lilv_plugin, port, lilv_new_uri(world, LILV_URI_INPUT_PORT))) {
+            
+            if (control_idx == param_index) {
+                return i;
+            }
+            control_idx++;
+        }
+    }
+    
+    return 0; // Fallback
 }
 
 gboolean

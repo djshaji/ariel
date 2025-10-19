@@ -124,7 +124,7 @@ ariel_plugin_manager_new(void)
     
     // Create list stores for UI
     manager->plugin_store = g_list_store_new(ARIEL_TYPE_PLUGIN_INFO);
-    manager->active_plugin_store = g_list_store_new(ARIEL_TYPE_PLUGIN_INFO);
+    manager->active_plugin_store = g_list_store_new(ARIEL_TYPE_ACTIVE_PLUGIN);
     
     // Try to load from cache first, otherwise refresh
     if (!ariel_plugin_manager_load_cache(manager)) {

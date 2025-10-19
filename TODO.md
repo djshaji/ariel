@@ -12,24 +12,24 @@
 ## 🚧 Next Development Steps
 
 ### Core Plugin Functionality
-- [ ] **Plugin Loading & Instantiation** - Implement actual LV2 plugin instantiation and processing in audio thread
-  - Create plugin instance management
-  - Add plugin to active plugins list when loaded
-  - Integrate plugin processing into JACK callback
-  - Handle plugin state and cleanup
+- [x] **Plugin Loading & Instantiation** - Implement actual LV2 plugin instantiation and processing in audio thread ✅
+  - [x] Create plugin instance management
+  - [x] Add plugin to active plugins list when loaded  
+  - [x] Integrate plugin processing into JACK callback
+  - [x] Handle plugin state and cleanup
 
-- [ ] **Parameter Control UI** - Add UI controls for plugin parameters and real-time parameter changes
-  - Generate parameter controls dynamically based on plugin metadata
-  - Implement parameter change communication between UI and audio threads
-  - Add parameter automation support
-  - Save/restore plugin presets
+- [x] **Parameter Control UI** - Add UI controls for plugin parameters and real-time parameter changes ✅
+  - [x] Generate parameter controls dynamically based on plugin metadata
+  - [x] Implement parameter change communication between UI and audio threads
+  - [ ] Add parameter automation support
+  - [ ] Save/restore plugin presets
 
 ### User Interface Enhancements
-- [ ] **Drag & Drop Support** - Enable plugin loading via drag and drop from plugin list to active plugins
-  - Implement drag source on plugin list items
-  - Add drop target on active plugins area
-  - Visual feedback during drag operations
-  - Support for audio file drag & drop
+- [x] **Drag & Drop Support** - Enable plugin loading via drag and drop from plugin list to active plugins ✅
+  - [x] Implement drag source on plugin list items
+  - [x] Add drop target on active plugins area
+  - [x] Visual feedback during drag operations
+  - [ ] Support for audio file drag & drop
 
 - [ ] **Transport Controls Implementation** - Connect play/stop/record buttons to actual functionality
   - Implement transport state management  

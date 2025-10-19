@@ -8,6 +8,12 @@ on_audio_toggle_clicked(GtkToggleButton *button, ArielWindow *window)
     ArielAudioEngine *engine = ariel_app_get_audio_engine(window->app);
     
     if (active) {
+        // Check if engine is already running
+        if (engine->active) {
+            g_print("Audio engine is already running\n");
+            return;
+        }
+        
         if (ariel_audio_engine_start(engine)) {
             gtk_button_set_label(GTK_BUTTON(button), "Audio: ON");
             gtk_widget_add_css_class(GTK_WIDGET(button), "suggested-action");

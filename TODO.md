@@ -64,6 +64,7 @@
   - MIDI CC to plugin parameter mapping
 
 - [x] **Plugin List Display** - Show discovered LV2 plugins in the UI with names and authors ✅
+- [x] **Configuration System & Plugin Caching** - Platform-specific config directory with plugin cache ✅
 - [ ] **Plugin Browser Enhancements** - Improve plugin discovery and organization
   - Plugin categories and tags
   - Search and filter functionality

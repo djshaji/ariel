@@ -13,6 +13,8 @@ typedef struct _ArielWindow ArielWindow;
 typedef struct _ArielAudioEngine ArielAudioEngine;
 typedef struct _ArielPluginManager ArielPluginManager;
 typedef struct _ArielPluginInfo ArielPluginInfo;
+typedef struct _ArielConfig ArielConfig;
+typedef struct _ArielActivePlugin ArielActivePlugin;
 
 #define ARIEL_TYPE_APP (ariel_app_get_type())
 G_DECLARE_FINAL_TYPE(ArielApp, ariel_app, ARIEL, APP, GtkApplication)
@@ -47,12 +49,22 @@ struct _ArielAudioEngine {
 #define ARIEL_TYPE_PLUGIN_INFO (ariel_plugin_info_get_type())
 G_DECLARE_FINAL_TYPE(ArielPluginInfo, ariel_plugin_info, ARIEL, PLUGIN_INFO, GObject)
 
+#define ARIEL_TYPE_ACTIVE_PLUGIN (ariel_active_plugin_get_type())
+G_DECLARE_FINAL_TYPE(ArielActivePlugin, ariel_active_plugin, ARIEL, ACTIVE_PLUGIN, GObject)
+
+// Configuration structure
+struct _ArielConfig {
+    char *config_dir;
+    char *cache_file;
+};
+
 // Plugin manager structure
 struct _ArielPluginManager {
     LilvWorld *world;
     const LilvPlugins *plugins;
     GListStore *plugin_store;
     GListStore *active_plugin_store;
+    ArielConfig *config;
 };
 
 // Function prototypes
@@ -88,10 +100,31 @@ ArielPluginInfo *ariel_plugin_info_new(const LilvPlugin *plugin);
 const char *ariel_plugin_info_get_name(ArielPluginInfo *info);
 const char *ariel_plugin_info_get_author(ArielPluginInfo *info);
 const char *ariel_plugin_info_get_uri(ArielPluginInfo *info);
+const LilvPlugin *ariel_plugin_info_get_plugin(ArielPluginInfo *info);
+const char *ariel_plugin_info_get_author(ArielPluginInfo *info);
+const char *ariel_plugin_info_get_uri(ArielPluginInfo *info);
+
+// Active Plugin
+ArielActivePlugin *ariel_active_plugin_new(ArielPluginInfo *plugin_info, ArielAudioEngine *engine);
+void ariel_active_plugin_process(ArielActivePlugin *plugin, jack_nframes_t nframes);
+void ariel_active_plugin_activate(ArielActivePlugin *plugin);
+void ariel_active_plugin_deactivate(ArielActivePlugin *plugin);
+const char *ariel_active_plugin_get_name(ArielActivePlugin *plugin);
+gboolean ariel_active_plugin_is_active(ArielActivePlugin *plugin);
+void ariel_active_plugin_connect_audio_ports(ArielActivePlugin *plugin, float **input_buffers, float **output_buffers);
+
+// Configuration
+ArielConfig *ariel_config_new(void);
+void ariel_config_free(ArielConfig *config);
+const char *ariel_config_get_dir(ArielConfig *config);
+const char *ariel_config_get_cache_file(ArielConfig *config);
 
 // Plugin Manager
 ArielPluginManager *ariel_plugin_manager_new(void);
 void ariel_plugin_manager_refresh(ArielPluginManager *manager);
+gboolean ariel_plugin_manager_load_cache(ArielPluginManager *manager);
+void ariel_plugin_manager_save_cache(ArielPluginManager *manager);
+ArielActivePlugin *ariel_plugin_manager_load_plugin(ArielPluginManager *manager, ArielPluginInfo *plugin_info, ArielAudioEngine *engine);
 void ariel_plugin_manager_free(ArielPluginManager *manager);
 
 // JACK callbacks

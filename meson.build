@@ -29,7 +29,9 @@ sources = [
   'src/ui/transport.c',
   'src/audio/engine.c',
   'src/audio/plugin_manager.c',
-  'src/audio/jack_client.c'
+  'src/audio/jack_client.c',
+  'src/audio/config.c',
+  'src/audio/active_plugin.c'
 ]
 
 # Build executable

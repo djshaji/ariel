@@ -3,8 +3,39 @@
 static void
 on_plugin_row_activated(GtkListView *list_view, guint position, ArielWindow *window)
 {
-    // TODO: Implement plugin loading when row is activated
-    g_print("Plugin row %u activated\n", position);
+    // Get the plugin info from the selection
+    ArielPluginManager *plugin_manager = ariel_app_get_plugin_manager(window->app);
+    ArielAudioEngine *engine = ariel_app_get_audio_engine(window->app);
+    
+    ArielPluginInfo *plugin_info = g_list_model_get_item(
+        G_LIST_MODEL(plugin_manager->plugin_store), position);
+    
+    if (!plugin_info) {
+        g_warning("No plugin found at position %u", position);
+        return;
+    }
+    
+    // Check if audio engine is running
+    if (!engine->active) {
+        g_warning("Cannot load plugin - audio engine is not running");
+        g_object_unref(plugin_info);
+        return;
+    }
+    
+    // Load the plugin
+    ArielActivePlugin *active_plugin = ariel_plugin_manager_load_plugin(
+        plugin_manager, plugin_info, engine);
+    
+    if (active_plugin) {
+        g_print("Successfully loaded plugin: %s\n", 
+                ariel_active_plugin_get_name(active_plugin));
+        g_object_unref(active_plugin); // List store holds its own reference
+    } else {
+        g_warning("Failed to load plugin: %s", 
+                  ariel_plugin_info_get_name(plugin_info));
+    }
+    
+    g_object_unref(plugin_info);
 }
 
 GtkWidget *

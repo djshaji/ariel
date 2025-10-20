@@ -1,4 +1,4 @@
-# Ariel
+# <img width="475" height="419" alt="logo-sm" src="https://github.com/user-attachments/assets/6e2529ad-4590-4fc1-8f8e-a93cd7784ebc" />
 A cross-platform LV2 host built with GTK4 and lilv.
 ## Features
 - **Real-time LV2 plugin hosting** with lilv integration

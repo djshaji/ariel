@@ -402,8 +402,20 @@ ariel_active_plugin_new(ArielPluginInfo *plugin_info, ArielAudioEngine *engine)
     }
 
     // Initialize URIDs for Atom messaging if URID map is available
-    if (manager && manager->urid_map) {
-        plugin->urid_map = (LV2_URID_Map*)manager->urid_map;
+    if (manager && manager->urid_map && manager->features) {
+        // Get the actual LV2_URID_Map from the features
+        plugin->urid_map = NULL;
+        for (int i = 0; manager->features[i]; i++) {
+            if (strcmp(manager->features[i]->URI, LV2_URID__map) == 0) {
+                plugin->urid_map = (LV2_URID_Map*)manager->features[i]->data;
+                break;
+            }
+        }
+        
+        if (!plugin->urid_map) {
+            g_warning("Could not find LV2_URID_Map in features");
+            return NULL;
+        }
         
         plugin->atom_Path = ariel_urid_map(manager->urid_map, LV2_ATOM__Path);
         plugin->atom_String = ariel_urid_map(manager->urid_map, LV2_ATOM__String);
@@ -850,10 +862,52 @@ ariel_active_plugin_set_file_parameter(ArielActivePlugin *plugin, const char *fi
         return;
     }
     
+    // Validate URID map pointer and its function pointer
+    if ((void*)plugin->urid_map < (void*)0x1000 || (void*)plugin->urid_map > (void*)0x7fffffffffff) {
+        g_print("Invalid URID map pointer: %p\n", (void*)plugin->urid_map);
+        return;
+    }
+    
+    if (!plugin->urid_map->map) {
+        g_print("URID map function pointer is NULL\n");
+        return;
+    }
+    
+    // Additional safety checks
+    if (!plugin->atom_input_buffers || !plugin->atom_input_buffers[0]) {
+        g_print("No Atom input buffers available\n");
+        return;
+    }
+    
+    if (plugin->atom_buffer_size < sizeof(LV2_Atom_Sequence) + 256) {
+        g_print("Atom buffer too small: %zu bytes\n", plugin->atom_buffer_size);
+        return;
+    }
+    
+    // Validate required URIDs
+    if (plugin->atom_Sequence == 0 || plugin->patch_Set == 0 || 
+        plugin->patch_property == 0 || plugin->patch_value == 0 ||
+        plugin->plugin_model_uri == 0) {
+        g_print("Required URIDs not properly initialized: seq=%u, set=%u, prop=%u, val=%u, model=%u\n",
+                plugin->atom_Sequence, plugin->patch_Set, plugin->patch_property, 
+                plugin->patch_value, plugin->plugin_model_uri);
+        return;
+    }
+    
     // Get the first atom input port (control port)
     LV2_Atom_Sequence *seq = (LV2_Atom_Sequence*)plugin->atom_input_buffers[0];
     
-    // Reset sequence
+    // Temporarily deactivate plugin to prevent race condition with audio thread
+    gboolean was_active = plugin->active;
+    if (was_active) {
+        plugin->active = FALSE;
+        g_usleep(1000); // Wait 1ms for audio thread to finish current cycle
+    }
+    
+    // Clear the entire buffer first for safety
+    memset(seq, 0, plugin->atom_buffer_size);
+    
+    // Reset sequence header
     seq->atom.type = plugin->atom_Sequence;
     seq->atom.size = sizeof(LV2_Atom_Sequence_Body);
     seq->body.unit = 0;
@@ -861,32 +915,100 @@ ariel_active_plugin_set_file_parameter(ArielActivePlugin *plugin, const char *fi
     
     // Create patch:Set message using LV2 Atom Forge
     LV2_Atom_Forge forge;
-    lv2_atom_forge_init(&forge, (LV2_URID_Map*)plugin->urid_map);
     
+    // Initialize forge with proper error checking
+    g_print("Initializing LV2 Atom Forge with URID map: %p (map function: %p)\n", 
+            (void*)plugin->urid_map, (void*)plugin->urid_map->map);
+    lv2_atom_forge_init(&forge, plugin->urid_map);
+    
+    // Set up forge buffer with proper bounds
     uint8_t *buffer = (uint8_t*)seq + sizeof(LV2_Atom_Sequence);
     size_t buffer_size = plugin->atom_buffer_size - sizeof(LV2_Atom_Sequence);
+    
+    // Ensure we have enough space for the message
+    size_t required_size = 128 + strlen(file_path) + 64; // Conservative estimate
+    if (buffer_size < required_size) {
+        g_print("Insufficient buffer space: have %zu, need ~%zu\n", buffer_size, required_size);
+        return;
+    }
+    
     lv2_atom_forge_set_buffer(&forge, buffer, buffer_size);
     
+    // Build the Atom message
     LV2_Atom_Forge_Frame frame;
-    lv2_atom_forge_sequence_head(&forge, &frame, 0);
+    if (lv2_atom_forge_sequence_head(&forge, &frame, 0) == 0) {
+        g_print("Failed to forge sequence head\n");
+        if (was_active) {
+            plugin->active = TRUE;
+        }
+        return;
+    }
     
     // Forge patch:Set message
     LV2_Atom_Forge_Frame set_frame;
-    lv2_atom_forge_frame_time(&forge, 0);
-    lv2_atom_forge_object(&forge, &set_frame, 0, plugin->patch_Set);
-    lv2_atom_forge_key(&forge, plugin->patch_property);
-    lv2_atom_forge_urid(&forge, plugin->plugin_model_uri);
-    lv2_atom_forge_key(&forge, plugin->patch_value);
-    lv2_atom_forge_path(&forge, file_path, strlen(file_path));
-    lv2_atom_forge_pop(&forge, &set_frame);
+    if (lv2_atom_forge_frame_time(&forge, 0) == 0) {
+        g_print("Failed to forge frame time\n");
+        if (was_active) {
+            plugin->active = TRUE;
+        }
+        return;
+    }
     
+    if (lv2_atom_forge_object(&forge, &set_frame, 0, plugin->patch_Set) == 0) {
+        g_print("Failed to forge patch:Set object\n");
+        if (was_active) {
+            plugin->active = TRUE;
+        }
+        return;
+    }
+    
+    if (lv2_atom_forge_key(&forge, plugin->patch_property) == 0 ||
+        lv2_atom_forge_urid(&forge, plugin->plugin_model_uri) == 0) {
+        g_print("Failed to forge property key/value\n");
+        lv2_atom_forge_pop(&forge, &set_frame);
+        lv2_atom_forge_pop(&forge, &frame);
+        if (was_active) {
+            plugin->active = TRUE;
+        }
+        return;
+    }
+    
+    if (lv2_atom_forge_key(&forge, plugin->patch_value) == 0 ||
+        lv2_atom_forge_path(&forge, file_path, strlen(file_path)) == 0) {
+        g_print("Failed to forge value key/path\n");
+        lv2_atom_forge_pop(&forge, &set_frame);
+        lv2_atom_forge_pop(&forge, &frame);
+        if (was_active) {
+            plugin->active = TRUE;
+        }
+        return;
+    }
+    
+    lv2_atom_forge_pop(&forge, &set_frame);
     lv2_atom_forge_pop(&forge, &frame);
     
-    // Update sequence size
-    seq->atom.size = sizeof(LV2_Atom_Sequence_Body) + forge.offset;
+    // Update sequence size with bounds check
+    size_t new_size = sizeof(LV2_Atom_Sequence_Body) + forge.offset;
+    if (new_size > plugin->atom_buffer_size) {
+        g_print("Atom message too large: %zu > %zu\n", new_size, plugin->atom_buffer_size);
+        // Reset to empty sequence
+        seq->atom.size = sizeof(LV2_Atom_Sequence_Body);
+        // Reactivate plugin if it was active before
+        if (was_active) {
+            plugin->active = TRUE;
+        }
+        return;
+    }
     
-    g_print("Sent file path to Neural Amp Modeler: %s (sequence size: %u)\n", 
-            file_path, seq->atom.size);
+    seq->atom.size = new_size;
+    
+    // Reactivate plugin if it was active before
+    if (was_active) {
+        plugin->active = TRUE;
+    }
+    
+    g_print("Sent file path to Neural Amp Modeler: %s (sequence size: %u, forge offset: %u)\n", 
+            file_path, seq->atom.size, (uint32_t)forge.offset);
 }
 
 // Check if plugin supports file parameters via Atom messaging

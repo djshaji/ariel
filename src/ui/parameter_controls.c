@@ -100,8 +100,24 @@ on_file_dialog_open_finish(GObject *source, GAsyncResult *result, gpointer user_
     GtkFileDialog *dialog = GTK_FILE_DIALOG(source);
     GError *error = NULL;
     
-    if (!data || !data->plugin || !data->control_widget) {
-        g_warning("Invalid data in file dialog callback");
+    if (!data) {
+        g_warning("No callback data in file dialog");
+        return;
+    }
+    
+    if (!data->plugin) {
+        g_warning("No plugin in callback data");
+        return;
+    }
+    
+    if (!data->control_widget) {
+        g_warning("No control widget in callback data");
+        return;
+    }
+    
+    // Verify the plugin is still valid
+    if (!G_IS_OBJECT(data->plugin)) {
+        g_warning("Plugin object is invalid in file dialog callback");
         return;
     }
     
@@ -115,8 +131,14 @@ on_file_dialog_open_finish(GObject *source, GAsyncResult *result, gpointer user_
             
             // Validate file extension
             if (g_str_has_suffix(file_path, ".nam") || g_str_has_suffix(file_path, ".nammodel")) {
-                // Send file path to plugin via Atom message
-                ariel_active_plugin_set_file_parameter(data->plugin, file_path);
+                // Double-check plugin validity before sending file parameter
+                if (ariel_active_plugin_supports_file_parameters(data->plugin)) {
+                    g_print("Sending file parameter to plugin: %s\n", file_path);
+                    // Send file path to plugin via Atom message
+                    ariel_active_plugin_set_file_parameter(data->plugin, file_path);
+                } else {
+                    g_warning("Plugin does not support file parameters or is invalid");
+                }
                 
                 // Update button label to show filename
                 char *basename = g_path_get_basename(file_path);

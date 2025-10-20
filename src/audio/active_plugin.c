@@ -378,28 +378,7 @@ ariel_active_plugin_new(ArielPluginInfo *plugin_info, ArielAudioEngine *engine)
         }
     }
 
-    // Set up Atom port buffers (basic setup to prevent crashes)
-    if (plugin->n_atom_inputs > 0 && plugin->atom_input_port_indices) {
-        plugin->atom_input_buffers = g_malloc0(plugin->n_atom_inputs * sizeof(void*));
-        for (guint i = 0; i < plugin->n_atom_inputs; i++) {
-            // Allocate a basic Atom sequence buffer (1024 bytes should be enough for most cases)
-            plugin->atom_input_buffers[i] = g_malloc0(1024);
-            lilv_instance_connect_port(plugin->instance,
-                                     plugin->atom_input_port_indices[i],
-                                     plugin->atom_input_buffers[i]);
-        }
-    }
-
-    if (plugin->n_atom_outputs > 0 && plugin->atom_output_port_indices) {
-        plugin->atom_output_buffers = g_malloc0(plugin->n_atom_outputs * sizeof(void*));
-        for (guint i = 0; i < plugin->n_atom_outputs; i++) {
-            // Allocate a basic Atom sequence buffer (1024 bytes should be enough for most cases)
-            plugin->atom_output_buffers[i] = g_malloc0(1024);
-            lilv_instance_connect_port(plugin->instance,
-                                     plugin->atom_output_port_indices[i],
-                                     plugin->atom_output_buffers[i]);
-        }
-    }
+    // Atom port buffers will be allocated later with proper URID initialization
 
     // Initialize URIDs for Atom messaging if URID map is available
     if (manager && manager->urid_map && manager->features) {
@@ -431,7 +410,8 @@ ariel_active_plugin_new(ArielPluginInfo *plugin_info, ArielAudioEngine *engine)
     
     // Set up Atom buffers (4KB should be sufficient for most messages)
     plugin->atom_buffer_size = 4096;
-    if (plugin->n_atom_inputs > 0) {
+    if (plugin->n_atom_inputs > 0 && plugin->atom_input_port_indices) {
+        plugin->atom_input_buffers = g_malloc0(plugin->n_atom_inputs * sizeof(void*));
         for (guint i = 0; i < plugin->n_atom_inputs; i++) {
             plugin->atom_input_buffers[i] = g_malloc0(plugin->atom_buffer_size);
             // Initialize as empty sequence
@@ -440,10 +420,16 @@ ariel_active_plugin_new(ArielPluginInfo *plugin_info, ArielAudioEngine *engine)
             seq->atom.size = sizeof(LV2_Atom_Sequence_Body);
             seq->body.unit = 0;
             seq->body.pad = 0;
+            
+            // Connect Atom input port to buffer
+            lilv_instance_connect_port(plugin->instance,
+                                     plugin->atom_input_port_indices[i],
+                                     plugin->atom_input_buffers[i]);
         }
     }
     
-    if (plugin->n_atom_outputs > 0) {
+    if (plugin->n_atom_outputs > 0 && plugin->atom_output_port_indices) {
+        plugin->atom_output_buffers = g_malloc0(plugin->n_atom_outputs * sizeof(void*));
         for (guint i = 0; i < plugin->n_atom_outputs; i++) {
             plugin->atom_output_buffers[i] = g_malloc0(plugin->atom_buffer_size);
             // Initialize as empty sequence
@@ -452,6 +438,11 @@ ariel_active_plugin_new(ArielPluginInfo *plugin_info, ArielAudioEngine *engine)
             seq->atom.size = sizeof(LV2_Atom_Sequence_Body);
             seq->body.unit = 0;
             seq->body.pad = 0;
+            
+            // Connect Atom output port to buffer
+            lilv_instance_connect_port(plugin->instance,
+                                     plugin->atom_output_port_indices[i],
+                                     plugin->atom_output_buffers[i]);
         }
     }
 
@@ -469,8 +460,20 @@ ariel_active_plugin_process(ArielActivePlugin *plugin, jack_nframes_t nframes)
         return;
     }
     
-    // Audio ports are connected dynamically in the JACK callback
-    // This function just runs the plugin
+    // Reset Atom output buffers for each processing cycle
+    if (plugin->atom_output_buffers && plugin->n_atom_outputs > 0) {
+        for (guint i = 0; i < plugin->n_atom_outputs; i++) {
+            if (plugin->atom_output_buffers[i]) {
+                LV2_Atom_Sequence *seq = (LV2_Atom_Sequence*)plugin->atom_output_buffers[i];
+                seq->atom.type = plugin->atom_Sequence;
+                seq->atom.size = sizeof(LV2_Atom_Sequence_Body);
+                seq->body.unit = 0;
+                seq->body.pad = 0;
+            }
+        }
+    }
+    
+    // Run the plugin
     lilv_instance_run(plugin->instance, nframes);
 }
 
@@ -621,23 +624,7 @@ ariel_active_plugin_connect_audio_ports(ArielActivePlugin *plugin,
         }
     }
     
-    // Connect Atom input ports
-    if (plugin->atom_input_port_indices && plugin->atom_input_buffers) {
-        for (guint i = 0; i < plugin->n_atom_inputs; i++) {
-            lilv_instance_connect_port(plugin->instance,
-                                     plugin->atom_input_port_indices[i],
-                                     plugin->atom_input_buffers[i]);
-        }
-    }
-    
-    // Connect Atom output ports
-    if (plugin->atom_output_port_indices && plugin->atom_output_buffers) {
-        for (guint i = 0; i < plugin->n_atom_outputs; i++) {
-            lilv_instance_connect_port(plugin->instance,
-                                     plugin->atom_output_port_indices[i],
-                                     plugin->atom_output_buffers[i]);
-        }
-    }
+    // Atom ports are connected during plugin initialization
 }
 
 gboolean

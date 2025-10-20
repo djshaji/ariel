@@ -17,6 +17,7 @@
 
 ## LV2 Plugin System
 - ✅ **Plugin Discovery** - Complete lilv integration scanning 865+ LV2 plugins
+- ✅ **Plugin Search** - Real-time case-insensitive search across plugin names, authors, and URIs
 - ✅ **Plugin Manager** - Centralized plugin world management and plugin enumeration
 - ✅ **Plugin Cache** - Fast startup with cached plugin information in GKeyFile format
 - ✅ **Plugin Loading** - Complete LV2 plugin instantiation and activation system
@@ -47,7 +48,8 @@
 
 ## User Interface
 - ✅ **Modern GTK4 UI** - Clean interface using contemporary GTK4 widgets
-- ✅ **Plugin Browser** - GtkListView displaying all discovered LV2 plugins with drag source
+- ✅ **Plugin Browser** - GtkListView displaying all discovered LV2 plugins with search functionality
+- ✅ **Plugin Search** - Real-time filtering with search entry widget supporting name/author/URI search
 - ✅ **Active Plugins View** - Drop target area showing loaded plugins with controls
 - ✅ **Transport Controls** - Header bar with play/stop/record buttons and engine toggle
 - ✅ **Plugin Widget Cards** - Individual plugin cards with bypass, preset, and remove buttons

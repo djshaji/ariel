@@ -3,21 +3,30 @@
 // Forward declarations
 static GdkContentProvider *on_drag_prepare(GtkDragSource *source, double x, double y, gpointer user_data);
 static void on_drag_begin(GtkDragSource *source, GdkDrag *drag, gpointer user_data);
+static void on_search_changed(GtkSearchEntry *entry, gpointer user_data);
+static gboolean plugin_filter_func(gpointer item, gpointer user_data);
 
 static void
 on_plugin_row_activated(GtkListView *list_view, guint position, ArielWindow *window)
 {
-    // Get the plugin info from the selection
-    ArielPluginManager *plugin_manager = ariel_app_get_plugin_manager(window->app);
-    ArielAudioEngine *engine = ariel_app_get_audio_engine(window->app);
+    // Get the selection model from the list view
+    GtkSelectionModel *selection_model = gtk_list_view_get_model(list_view);
+    if (!selection_model) {
+        g_warning("No selection model found");
+        return;
+    }
     
+    // Get the plugin info from the filtered model
     ArielPluginInfo *plugin_info = g_list_model_get_item(
-        G_LIST_MODEL(plugin_manager->plugin_store), position);
+        G_LIST_MODEL(selection_model), position);
     
     if (!plugin_info) {
         g_warning("No plugin found at position %u", position);
         return;
     }
+    
+    ArielPluginManager *plugin_manager = ariel_app_get_plugin_manager(window->app);
+    ArielAudioEngine *engine = ariel_app_get_audio_engine(window->app);
     
     // Check if audio engine is running
     if (!engine->active) {
@@ -49,26 +58,54 @@ on_plugin_row_activated(GtkListView *list_view, guint position, ArielWindow *win
 GtkWidget *
 ariel_create_plugin_list(ArielWindow *window)
 {
+    GtkWidget *main_box;
+    GtkWidget *search_entry;
     GtkWidget *scrolled;
     GtkWidget *list_view;
     GtkListItemFactory *factory;
     GtkSelectionModel *selection_model;
+    GtkCustomFilter *custom_filter;
+    GtkFilterListModel *filter_model;
+    
+    // Create main container
+    main_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+    gtk_widget_set_margin_start(main_box, 12);
+    gtk_widget_set_margin_end(main_box, 12);
+    gtk_widget_set_margin_top(main_box, 12);
+    gtk_widget_set_margin_bottom(main_box, 12);
+    
+    // Create header with title
+    GtkWidget *header_label = gtk_label_new("LV2 Plugins");
+    gtk_widget_add_css_class(header_label, "title-2");
+    gtk_label_set_xalign(GTK_LABEL(header_label), 0.0);
+    gtk_box_append(GTK_BOX(main_box), header_label);
+    
+    // Create search entry
+    search_entry = gtk_search_entry_new();
+    gtk_search_entry_set_placeholder_text(GTK_SEARCH_ENTRY(search_entry), "Search plugins...");
+    gtk_widget_set_hexpand(search_entry, TRUE);
+    gtk_box_append(GTK_BOX(main_box), search_entry);
     
     // Create scrolled window
     scrolled = gtk_scrolled_window_new();
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled),
                                    GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
     gtk_widget_set_size_request(scrolled, 300, -1);
+    gtk_widget_set_vexpand(scrolled, TRUE);
     
     // Create list item factory
     factory = gtk_signal_list_item_factory_new();
     g_signal_connect(factory, "setup", G_CALLBACK(setup_plugin_list_item), NULL);
     g_signal_connect(factory, "bind", G_CALLBACK(bind_plugin_list_item), NULL);
     
-    // Create selection model
+    // Create filter for search functionality
     ArielPluginManager *plugin_manager = ariel_app_get_plugin_manager(window->app);
+    custom_filter = gtk_custom_filter_new(plugin_filter_func, search_entry, NULL);
+    filter_model = gtk_filter_list_model_new(G_LIST_MODEL(plugin_manager->plugin_store), GTK_FILTER(custom_filter));
+    
+    // Create selection model with filtered model
     selection_model = GTK_SELECTION_MODEL(
-        gtk_single_selection_new(G_LIST_MODEL(plugin_manager->plugin_store))
+        gtk_single_selection_new(G_LIST_MODEL(filter_model))
     );
     
     // Create list view
@@ -76,9 +113,14 @@ ariel_create_plugin_list(ArielWindow *window)
     g_signal_connect(list_view, "activate",
                      G_CALLBACK(on_plugin_row_activated), window);
     
-    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), list_view);
+    // Connect search functionality
+    g_object_set_data(G_OBJECT(search_entry), "filter", custom_filter);
+    g_signal_connect(search_entry, "search-changed", G_CALLBACK(on_search_changed), custom_filter);
     
-    return scrolled;
+    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), list_view);
+    gtk_box_append(GTK_BOX(main_box), scrolled);
+    
+    return main_box;
 }
 
 // Drag source callbacks
@@ -178,5 +220,75 @@ bind_plugin_list_item(GtkListItemFactory *factory, GtkListItem *list_item, gpoin
         g_signal_connect(drag_source, "prepare", G_CALLBACK(on_drag_prepare), plugin_info);
         g_signal_connect(drag_source, "drag-begin", G_CALLBACK(on_drag_begin), plugin_info);
     }
+}
+
+// Search functionality
+static void
+on_search_changed(G_GNUC_UNUSED GtkSearchEntry *entry, gpointer user_data)
+{
+    GtkCustomFilter *filter = GTK_CUSTOM_FILTER(user_data);
+    
+    // Trigger filter update
+    gtk_filter_changed(GTK_FILTER(filter), GTK_FILTER_CHANGE_DIFFERENT);
+}
+
+static gboolean
+plugin_filter_func(gpointer item, gpointer user_data)
+{
+    ArielPluginInfo *plugin_info = ARIEL_PLUGIN_INFO(item);
+    GtkSearchEntry *search_entry = GTK_SEARCH_ENTRY(user_data);
+    
+    if (!plugin_info || !search_entry) {
+        return TRUE; // Show all if no search context
+    }
+    
+    const char *search_text = gtk_editable_get_text(GTK_EDITABLE(search_entry));
+    
+    // If search is empty, show all plugins
+    if (!search_text || strlen(search_text) == 0) {
+        return TRUE;
+    }
+    
+    // Convert search text to lowercase for case-insensitive search
+    char *search_lower = g_utf8_strdown(search_text, -1);
+    
+    gboolean match = FALSE;
+    
+    // Search in plugin name
+    const char *plugin_name = ariel_plugin_info_get_name(plugin_info);
+    if (plugin_name) {
+        char *name_lower = g_utf8_strdown(plugin_name, -1);
+        if (strstr(name_lower, search_lower) != NULL) {
+            match = TRUE;
+        }
+        g_free(name_lower);
+    }
+    
+    // Search in author name if name didn't match
+    if (!match) {
+        const char *author = ariel_plugin_info_get_author(plugin_info);
+        if (author) {
+            char *author_lower = g_utf8_strdown(author, -1);
+            if (strstr(author_lower, search_lower) != NULL) {
+                match = TRUE;
+            }
+            g_free(author_lower);
+        }
+    }
+    
+    // Search in URI if still no match
+    if (!match) {
+        const char *uri = ariel_plugin_info_get_uri(plugin_info);
+        if (uri) {
+            char *uri_lower = g_utf8_strdown(uri, -1);
+            if (strstr(uri_lower, search_lower) != NULL) {
+                match = TRUE;
+            }
+            g_free(uri_lower);
+        }
+    }
+    
+    g_free(search_lower);
+    return match;
 }
 

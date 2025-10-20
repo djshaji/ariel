@@ -3,6 +3,7 @@ A cross-platform LV2 host built with GTK4 and lilv.
 ## Features
 - **Real-time LV2 plugin hosting** with lilv integration
 - **Intelligent plugin search** - Quickly find plugins among 865+ discovered LV2 plugins by name, author, or URI
+- **Category filtering** - Browse plugins by type (Distortion, Reverb, Analyzer, etc.) with 40+ categories
 - **Drag and drop support** for intuitive plugin loading 
 - **Parameter controls** with real-time adjustment for all plugin parameters
 - **Preset management** - Save and load individual plugin presets
@@ -197,7 +198,9 @@ sudo ninja -C builddir uninstall
 1. **Plugin Discovery**
    - View all available LV2 plugins in the left panel
    - Use the search box to quickly find plugins by name, author, or URI
-   - Search is case-insensitive and searches across plugin names, authors, and URIs
+   - Filter plugins by category using the dropdown (Distortion, Reverb, Analyzer, etc.)
+   - Search is case-insensitive and searches across plugin names, authors, categories, and URIs
+   - Over 40 plugin categories automatically detected from LV2 metadata
    - Click on a plugin to load it into the active chain
 
 2. **Loading Plugins**

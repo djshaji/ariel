@@ -6,6 +6,7 @@ struct _ArielPluginInfo {
     char *name;
     char *author;
     char *uri;
+    char *category;
     const LilvPlugin *plugin;
 };
 
@@ -19,6 +20,7 @@ ariel_plugin_info_finalize(GObject *object)
     g_free(info->name);
     g_free(info->author);
     g_free(info->uri);
+    g_free(info->category);
     
     G_OBJECT_CLASS(ariel_plugin_info_parent_class)->finalize(object);
 }
@@ -35,6 +37,7 @@ ariel_plugin_info_init(ArielPluginInfo *info)
     info->name = NULL;
     info->author = NULL;
     info->uri = NULL;
+    info->category = NULL;
     info->plugin = NULL;
 }
 
@@ -73,6 +76,19 @@ ariel_plugin_info_new(const LilvPlugin *plugin)
         info->uri = g_strdup("");
     }
     
+    // Get plugin category from LV2 class
+    const LilvPluginClass *plugin_class = lilv_plugin_get_class(plugin);
+    if (plugin_class) {
+        const LilvNode *class_label = lilv_plugin_class_get_label(plugin_class);
+        if (class_label) {
+            info->category = g_strdup(lilv_node_as_string(class_label));
+        } else {
+            info->category = g_strdup("Unknown");
+        }
+    } else {
+        info->category = g_strdup("Unknown");
+    }
+    
     return info;
 }
 
@@ -95,6 +111,13 @@ ariel_plugin_info_get_uri(ArielPluginInfo *info)
 {
     g_return_val_if_fail(ARIEL_IS_PLUGIN_INFO(info), NULL);
     return info->uri;
+}
+
+const char *
+ariel_plugin_info_get_category(ArielPluginInfo *info)
+{
+    g_return_val_if_fail(ARIEL_IS_PLUGIN_INFO(info), NULL);
+    return info->category;
 }
 
 const LilvPlugin *
@@ -259,6 +282,7 @@ ariel_plugin_manager_save_cache(ArielPluginManager *manager)
         g_key_file_set_string(keyfile, group_name, "uri", ariel_plugin_info_get_uri(info));
         g_key_file_set_string(keyfile, group_name, "name", ariel_plugin_info_get_name(info));
         g_key_file_set_string(keyfile, group_name, "author", ariel_plugin_info_get_author(info));
+        g_key_file_set_string(keyfile, group_name, "category", ariel_plugin_info_get_category(info));
         
         g_free(group_name);
         g_object_unref(info);

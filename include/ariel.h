@@ -118,6 +118,7 @@ ArielPluginInfo *ariel_plugin_info_new(const LilvPlugin *plugin);
 const char *ariel_plugin_info_get_name(ArielPluginInfo *info);
 const char *ariel_plugin_info_get_author(ArielPluginInfo *info);
 const char *ariel_plugin_info_get_uri(ArielPluginInfo *info);
+const char *ariel_plugin_info_get_category(ArielPluginInfo *info);
 const LilvPlugin *ariel_plugin_info_get_plugin(ArielPluginInfo *info);
 const char *ariel_plugin_info_get_author(ArielPluginInfo *info);
 const char *ariel_plugin_info_get_uri(ArielPluginInfo *info);

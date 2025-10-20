@@ -18,8 +18,9 @@
 ## LV2 Plugin System
 - ✅ **Plugin Discovery** - Complete lilv integration scanning 865+ LV2 plugins
 - ✅ **Plugin Search** - Real-time case-insensitive search across plugin names, authors, and URIs
+- ✅ **Category Filtering** - Filter plugins by type using 40+ auto-detected categories (Distortion, Reverb, etc.)
+- ✅ **Plugin Cache** - Fast startup with cached plugin information including categories in GKeyFile format
 - ✅ **Plugin Manager** - Centralized plugin world management and plugin enumeration
-- ✅ **Plugin Cache** - Fast startup with cached plugin information in GKeyFile format
 - ✅ **Plugin Loading** - Complete LV2 plugin instantiation and activation system
 - ✅ **Plugin Processing** - Real-time plugin processing with proper port introspection
 - ✅ **Port Management** - Dynamic port index mapping instead of hardcoded assumptions
@@ -48,8 +49,9 @@
 
 ## User Interface
 - ✅ **Modern GTK4 UI** - Clean interface using contemporary GTK4 widgets
-- ✅ **Plugin Browser** - GtkListView displaying all discovered LV2 plugins with search functionality
-- ✅ **Plugin Search** - Real-time filtering with search entry widget supporting name/author/URI search
+- ✅ **Plugin Browser** - GtkListView displaying all discovered LV2 plugins with search and category filtering
+- ✅ **Plugin Search** - Real-time filtering with search entry widget supporting name/author/URI/category search
+- ✅ **Category Dropdown** - Filter plugins by type with 40+ categories (Distortion, Reverb, Analyzer, etc.)
 - ✅ **Active Plugins View** - Drop target area showing loaded plugins with controls
 - ✅ **Transport Controls** - Header bar with play/stop/record buttons and engine toggle
 - ✅ **Plugin Widget Cards** - Individual plugin cards with bypass, preset, and remove buttons

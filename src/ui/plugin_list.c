@@ -4,7 +4,9 @@
 static GdkContentProvider *on_drag_prepare(GtkDragSource *source, double x, double y, gpointer user_data);
 static void on_drag_begin(GtkDragSource *source, GdkDrag *drag, gpointer user_data);
 static void on_search_changed(GtkSearchEntry *entry, gpointer user_data);
+static void on_category_changed(GtkDropDown *dropdown, GParamSpec *pspec, gpointer user_data);
 static gboolean plugin_filter_func(gpointer item, gpointer user_data);
+static void populate_category_dropdown(GtkDropDown *dropdown, ArielPluginManager *manager);
 
 static void
 on_plugin_row_activated(GtkListView *list_view, guint position, ArielWindow *window)
@@ -80,11 +82,23 @@ ariel_create_plugin_list(ArielWindow *window)
     gtk_label_set_xalign(GTK_LABEL(header_label), 0.0);
     gtk_box_append(GTK_BOX(main_box), header_label);
     
+    // Create filter controls container
+    GtkWidget *filter_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    
     // Create search entry
     search_entry = gtk_search_entry_new();
     gtk_search_entry_set_placeholder_text(GTK_SEARCH_ENTRY(search_entry), "Search plugins...");
     gtk_widget_set_hexpand(search_entry, TRUE);
-    gtk_box_append(GTK_BOX(main_box), search_entry);
+    gtk_box_append(GTK_BOX(filter_box), search_entry);
+    
+    // Create category dropdown
+    GtkWidget *category_dropdown = gtk_drop_down_new(NULL, NULL);
+    gtk_widget_set_size_request(category_dropdown, 150, -1);
+    ArielPluginManager *plugin_manager = ariel_app_get_plugin_manager(window->app);
+    populate_category_dropdown(GTK_DROP_DOWN(category_dropdown), plugin_manager);
+    gtk_box_append(GTK_BOX(filter_box), category_dropdown);
+    
+    gtk_box_append(GTK_BOX(main_box), filter_box);
     
     // Create scrolled window
     scrolled = gtk_scrolled_window_new();
@@ -99,8 +113,12 @@ ariel_create_plugin_list(ArielWindow *window)
     g_signal_connect(factory, "bind", G_CALLBACK(bind_plugin_list_item), NULL);
     
     // Create filter for search functionality
-    ArielPluginManager *plugin_manager = ariel_app_get_plugin_manager(window->app);
-    custom_filter = gtk_custom_filter_new(plugin_filter_func, search_entry, NULL);
+    // Create filter data structure to pass both widgets
+    GtkWidget **filter_data = g_new(GtkWidget*, 2);
+    filter_data[0] = search_entry;
+    filter_data[1] = category_dropdown;
+    
+    custom_filter = gtk_custom_filter_new(plugin_filter_func, filter_data, g_free);
     filter_model = gtk_filter_list_model_new(G_LIST_MODEL(plugin_manager->plugin_store), GTK_FILTER(custom_filter));
     
     // Create selection model with filtered model
@@ -113,9 +131,11 @@ ariel_create_plugin_list(ArielWindow *window)
     g_signal_connect(list_view, "activate",
                      G_CALLBACK(on_plugin_row_activated), window);
     
-    // Connect search functionality
+    // Connect search and category functionality
     g_object_set_data(G_OBJECT(search_entry), "filter", custom_filter);
+    g_object_set_data(G_OBJECT(category_dropdown), "filter", custom_filter);
     g_signal_connect(search_entry, "search-changed", G_CALLBACK(on_search_changed), custom_filter);
+    g_signal_connect(category_dropdown, "notify::selected", G_CALLBACK(on_category_changed), custom_filter);
     
     gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), list_view);
     gtk_box_append(GTK_BOX(main_box), scrolled);
@@ -232,19 +252,79 @@ on_search_changed(G_GNUC_UNUSED GtkSearchEntry *entry, gpointer user_data)
     gtk_filter_changed(GTK_FILTER(filter), GTK_FILTER_CHANGE_DIFFERENT);
 }
 
+static void
+on_category_changed(G_GNUC_UNUSED GtkDropDown *dropdown, G_GNUC_UNUSED GParamSpec *pspec, gpointer user_data)
+{
+    GtkCustomFilter *filter = GTK_CUSTOM_FILTER(user_data);
+    
+    // Trigger filter update
+    gtk_filter_changed(GTK_FILTER(filter), GTK_FILTER_CHANGE_DIFFERENT);
+}
+
+static void
+populate_category_dropdown(GtkDropDown *dropdown, ArielPluginManager *manager)
+{
+    GtkStringList *category_list = gtk_string_list_new(NULL);
+    GHashTable *categories = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+    
+    // Add "All Categories" option
+    gtk_string_list_append(category_list, "All Categories");
+    
+    // Collect unique categories from all plugins
+    guint n_plugins = g_list_model_get_n_items(G_LIST_MODEL(manager->plugin_store));
+    for (guint i = 0; i < n_plugins; i++) {
+        ArielPluginInfo *info = g_list_model_get_item(G_LIST_MODEL(manager->plugin_store), i);
+        if (info) {
+            const char *category = ariel_plugin_info_get_category(info);
+            if (category && !g_hash_table_contains(categories, category)) {
+                g_hash_table_insert(categories, g_strdup(category), GINT_TO_POINTER(1));
+                gtk_string_list_append(category_list, category);
+            }
+            g_object_unref(info);
+        }
+    }
+    
+    // Set the model
+    gtk_drop_down_set_model(dropdown, G_LIST_MODEL(category_list));
+    gtk_drop_down_set_selected(dropdown, 0); // Select "All Categories"
+    
+    g_hash_table_destroy(categories);
+}
+
 static gboolean
 plugin_filter_func(gpointer item, gpointer user_data)
 {
     ArielPluginInfo *plugin_info = ARIEL_PLUGIN_INFO(item);
-    GtkSearchEntry *search_entry = GTK_SEARCH_ENTRY(user_data);
+    GtkWidget **filter_data = (GtkWidget**)user_data;
     
-    if (!plugin_info || !search_entry) {
-        return TRUE; // Show all if no search context
+    if (!plugin_info || !filter_data) {
+        return TRUE; // Show all if no filter context
     }
     
+    GtkSearchEntry *search_entry = GTK_SEARCH_ENTRY(filter_data[0]);
+    GtkDropDown *category_dropdown = GTK_DROP_DOWN(filter_data[1]);
+    
+    // Check category filter first
+    guint selected_category = gtk_drop_down_get_selected(category_dropdown);
+    if (selected_category > 0) { // 0 is "All Categories"
+        GtkStringList *category_list = GTK_STRING_LIST(gtk_drop_down_get_model(category_dropdown));
+        GtkStringObject *selected_item = g_list_model_get_item(G_LIST_MODEL(category_list), selected_category);
+        if (selected_item) {
+            const char *selected_category_name = gtk_string_object_get_string(selected_item);
+            const char *plugin_category = ariel_plugin_info_get_category(plugin_info);
+            
+            if (!plugin_category || strcmp(plugin_category, selected_category_name) != 0) {
+                g_object_unref(selected_item);
+                return FALSE; // Category doesn't match
+            }
+            g_object_unref(selected_item);
+        }
+    }
+    
+    // Check search filter
     const char *search_text = gtk_editable_get_text(GTK_EDITABLE(search_entry));
     
-    // If search is empty, show all plugins
+    // If search is empty, show all plugins (that pass category filter)
     if (!search_text || strlen(search_text) == 0) {
         return TRUE;
     }
@@ -273,6 +353,18 @@ plugin_filter_func(gpointer item, gpointer user_data)
                 match = TRUE;
             }
             g_free(author_lower);
+        }
+    }
+    
+    // Search in category if still no match
+    if (!match) {
+        const char *category = ariel_plugin_info_get_category(plugin_info);
+        if (category) {
+            char *category_lower = g_utf8_strdown(category, -1);
+            if (strstr(category_lower, search_lower) != NULL) {
+                match = TRUE;
+            }
+            g_free(category_lower);
         }
     }
     

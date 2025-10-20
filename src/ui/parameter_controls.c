@@ -163,42 +163,82 @@ is_path_parameter(const LilvPlugin *plugin, const LilvPort *port)
     return is_path;
 }
 
-// Check if plugin has LV2 Parameters with atom:Path range
+// Check if port is an Atom control port with rdfs:range atom:Path
 static gboolean
 is_plugin_parameter_path(const LilvPlugin *plugin, const LilvPort *port)
 {
-    // This function should only check for plugins that support file parameters
-    // via Atom messaging, not regular control ports
-    
     ArielApp *app = ARIEL_APP(g_application_get_default());
     ArielPluginManager *manager = ariel_app_get_plugin_manager(app);
     
-    if (!manager || !manager->world) return FALSE;
+    if (!manager || !manager->world || !port) return FALSE;
     
-    // Get plugin URI to check for parameters
-    const LilvNode *plugin_uri = lilv_plugin_get_uri(plugin);
-    if (!plugin_uri) return FALSE;
+    // First check: is this an Atom port?
+    LilvNode *atom_port_class = lilv_new_uri(manager->world, LV2_ATOM__AtomPort);
+    LilvNode *input_port_class = lilv_new_uri(manager->world, LV2_CORE__InputPort);
+    LilvNode *control_designation = lilv_new_uri(manager->world, LV2_CORE__control);
     
-    // Special case for Neural Amp Modeler - check if this is the plugin and it has Atom ports
-    const char *plugin_uri_str = lilv_node_as_string(plugin_uri);
-    if (g_str_has_prefix(plugin_uri_str, "http://github.com/mikeoliphant/neural-amp-modeler-lv2")) {
-        // Check if plugin has Atom input ports (control ports)
-        LilvNode *atom_port_class = lilv_new_uri(manager->world, LV2_ATOM__AtomPort);
-        LilvNode *input_port_class = lilv_new_uri(manager->world, LV2_CORE__InputPort);
+    gboolean is_atom_control_input = FALSE;
+    
+    // Check if it's an Atom input port with control designation
+    if (lilv_port_is_a(plugin, port, atom_port_class) &&
+        lilv_port_is_a(plugin, port, input_port_class)) {
         
-        // Look for Atom input ports
-        for (uint32_t i = 0; i < lilv_plugin_get_num_ports(plugin); i++) {
-            const LilvPort *p = lilv_plugin_get_port_by_index(plugin, i);
-            if (lilv_port_is_a(plugin, p, atom_port_class) &&
-                lilv_port_is_a(plugin, p, input_port_class)) {
-                lilv_node_free(atom_port_class);
-                lilv_node_free(input_port_class);
-                return TRUE; // Plugin supports file parameters via Atom messaging
+        // Check if it has lv2:designation lv2:control
+        LilvNodes *designations = lilv_port_get_value(plugin, port, 
+                                   lilv_new_uri(manager->world, LV2_CORE__designation));
+        if (designations) {
+            LILV_FOREACH(nodes, i, designations) {
+                const LilvNode *designation = lilv_nodes_get(designations, i);
+                if (lilv_node_equals(designation, control_designation)) {
+                    is_atom_control_input = TRUE;
+                    break;
+                }
             }
+            lilv_nodes_free(designations);
+        }
+    }
+    
+    lilv_node_free(atom_port_class);
+    lilv_node_free(input_port_class);
+    lilv_node_free(control_designation);
+    
+    // If this is an Atom control input port, check if the plugin has
+    // a parameter with atom:Path range that this port can handle
+    if (is_atom_control_input) {
+        const LilvNode *plugin_uri = lilv_plugin_get_uri(plugin);
+        LilvNode *patch_writable = lilv_new_uri(manager->world, LV2_PATCH__writable);
+        LilvNode *rdfs_range = lilv_new_uri(manager->world, "http://www.w3.org/2000/01/rdf-schema#range");
+        LilvNode *atom_path = lilv_new_uri(manager->world, LV2_ATOM__Path);
+        
+        // Check if plugin has patch:writable parameters with atom:Path range
+        LilvNodes *writables = lilv_world_find_nodes(manager->world, plugin_uri, patch_writable, NULL);
+        if (writables) {
+            LILV_FOREACH(nodes, i, writables) {
+                const LilvNode *writable = lilv_nodes_get(writables, i);
+                
+                // Check if this parameter has rdfs:range atom:Path
+                LilvNodes *ranges = lilv_world_find_nodes(manager->world, writable, rdfs_range, NULL);
+                if (ranges) {
+                    LILV_FOREACH(nodes, j, ranges) {
+                        const LilvNode *range = lilv_nodes_get(ranges, j);
+                        if (lilv_node_equals(range, atom_path)) {
+                            lilv_nodes_free(ranges);
+                            lilv_nodes_free(writables);
+                            lilv_node_free(patch_writable);
+                            lilv_node_free(rdfs_range);
+                            lilv_node_free(atom_path);
+                            return TRUE; // This Atom control port handles file parameters
+                        }
+                    }
+                    lilv_nodes_free(ranges);
+                }
+            }
+            lilv_nodes_free(writables);
         }
         
-        lilv_node_free(atom_port_class);
-        lilv_node_free(input_port_class);
+        lilv_node_free(patch_writable);
+        lilv_node_free(rdfs_range);
+        lilv_node_free(atom_path);
     }
     
     return FALSE;
@@ -306,10 +346,58 @@ create_parameter_control(ArielActivePlugin *plugin, uint32_t param_index)
     return param_box;
 }
 
+// Create file parameter control for Atom control ports
+static GtkWidget *
+create_file_parameter_control(ArielActivePlugin *plugin, const LilvPlugin *lilv_plugin, const LilvPort *port)
+{
+    // Get parameter info
+    char *label = get_parameter_label(lilv_plugin, port);
+    
+    // Create container box
+    GtkWidget *param_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+    gtk_widget_set_margin_start(param_box, 8);
+    gtk_widget_set_margin_end(param_box, 8);
+    gtk_widget_set_margin_top(param_box, 4);
+    gtk_widget_set_margin_bottom(param_box, 4);
+    
+    // Create label
+    GtkWidget *param_label = gtk_label_new(label);
+    gtk_label_set_xalign(GTK_LABEL(param_label), 0.0);
+    gtk_widget_add_css_class(param_label, "caption");
+    gtk_box_append(GTK_BOX(param_box), param_label);
+    
+    // Create callback data
+    ParameterControlData *data = g_malloc(sizeof(ParameterControlData));
+    data->plugin = plugin;
+    data->param_index = 0; // This is for Atom messaging, not indexed parameters
+    
+    // Create file chooser button for atom:Path parameters
+    GtkWidget *control_widget = gtk_button_new_with_label("📁 Select Neural Model...");
+    gtk_widget_add_css_class(control_widget, "pill");
+    gtk_widget_add_css_class(control_widget, "suggested-action");
+    
+    data->control_widget = control_widget;
+    
+    // File chooser callback for loading neural models
+    g_signal_connect_data(control_widget, "clicked",
+                         G_CALLBACK(on_file_button_clicked), data,
+                         (GClosureNotify)g_free, 0);
+    
+    gtk_box_append(GTK_BOX(param_box), control_widget);
+    
+    g_print("Created file chooser button for Atom control port: %s\n", label);
+    
+    g_free(label);
+    return param_box;
+}
+
 GtkWidget *
 ariel_create_parameter_controls(ArielActivePlugin *plugin)
 {
     if (!plugin) return NULL;
+    
+    const LilvPlugin *lilv_plugin = ariel_active_plugin_get_lilv_plugin(plugin);
+    if (!lilv_plugin) return NULL;
     
     // Create scrolled window for parameters
     GtkWidget *scrolled = gtk_scrolled_window_new();
@@ -324,10 +412,26 @@ ariel_create_parameter_controls(ArielActivePlugin *plugin)
     gtk_widget_set_margin_top(params_box, 12);
     gtk_widget_set_margin_bottom(params_box, 12);
     
-    // Get number of parameters
+    // Get number of regular control parameters
     uint32_t num_params = ariel_active_plugin_get_num_parameters(plugin);
     
-    if (num_params == 0) {
+    // Check for Atom control ports with file parameters
+    ArielApp *app = ARIEL_APP(g_application_get_default());
+    ArielPluginManager *manager = ariel_app_get_plugin_manager(app);
+    gboolean has_file_params = FALSE;
+    
+    if (manager && manager->world) {
+        // Look for Atom control input ports
+        for (uint32_t i = 0; i < lilv_plugin_get_num_ports(lilv_plugin); i++) {
+            const LilvPort *port = lilv_plugin_get_port_by_index(lilv_plugin, i);
+            if (is_plugin_parameter_path(lilv_plugin, port)) {
+                has_file_params = TRUE;
+                break;
+            }
+        }
+    }
+    
+    if (num_params == 0 && !has_file_params) {
         // No parameters - show a message
         GtkWidget *no_params_label = gtk_label_new("This plugin has no adjustable parameters");
         gtk_label_set_wrap(GTK_LABEL(no_params_label), TRUE);
@@ -344,7 +448,26 @@ ariel_create_parameter_controls(ArielActivePlugin *plugin)
         GtkWidget *separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
         gtk_box_append(GTK_BOX(params_box), separator);
         
-        // Create parameter controls
+        // First, add Atom control ports with file parameters
+        if (has_file_params) {
+            for (uint32_t i = 0; i < lilv_plugin_get_num_ports(lilv_plugin); i++) {
+                const LilvPort *port = lilv_plugin_get_port_by_index(lilv_plugin, i);
+                if (is_plugin_parameter_path(lilv_plugin, port)) {
+                    GtkWidget *file_control = create_file_parameter_control(plugin, lilv_plugin, port);
+                    if (file_control) {
+                        gtk_box_append(GTK_BOX(params_box), file_control);
+                    }
+                }
+            }
+            
+            if (num_params > 0) {
+                // Add separator between file params and regular params
+                GtkWidget *separator2 = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+                gtk_box_append(GTK_BOX(params_box), separator2);
+            }
+        }
+        
+        // Then, add regular control parameters (Input Lvl, Output Lvl, etc.)
         for (uint32_t i = 0; i < num_params; i++) {
             GtkWidget *param_control = create_parameter_control(plugin, i);
             if (param_control) {

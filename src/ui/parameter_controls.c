@@ -38,33 +38,39 @@ on_toggle_changed(GtkToggleButton *button, ParameterControlData *data)
 
 
 
+// Forward declarations
+static void on_file_dialog_open_finish(GObject *source, GAsyncResult *result, gpointer user_data);
+
 // Callback for file chooser button
 static void
 on_file_button_clicked(GtkButton *button, ParameterControlData *data)
 {
     if (!data || !data->plugin) return;
     
-    // Simple placeholder - create a modern GTK4 file dialog
+    // Create modern GTK4 file dialog
     GtkFileDialog *dialog = gtk_file_dialog_new();
     gtk_file_dialog_set_title(dialog, "Select Neural Amp Model");
     
-    // Set up file filter for neural amp models
+    // Set up file filters for neural amp models
     GListStore *filters = g_list_store_new(GTK_TYPE_FILE_FILTER);
     
-    GtkFileFilter *filter = gtk_file_filter_new();
-    gtk_file_filter_set_name(filter, "Neural Amp Models (*.nam, *.nammodel)");
-    gtk_file_filter_add_pattern(filter, "*.nam");
-    gtk_file_filter_add_pattern(filter, "*.nammodel");
-    g_list_store_append(filters, filter);
-    g_object_unref(filter);
+    // Neural model files filter
+    GtkFileFilter *nam_filter = gtk_file_filter_new();
+    gtk_file_filter_set_name(nam_filter, "Neural Amp Models (*.nam, *.nammodel)");
+    gtk_file_filter_add_pattern(nam_filter, "*.nam");
+    gtk_file_filter_add_pattern(nam_filter, "*.nammodel");
+    g_list_store_append(filters, nam_filter);
+    g_object_unref(nam_filter);
     
+    // All files filter as backup
     GtkFileFilter *all_filter = gtk_file_filter_new();
-    gtk_file_filter_set_name(all_filter, "All Files");
+    gtk_file_filter_set_name(all_filter, "All Files (*.*)");
     gtk_file_filter_add_pattern(all_filter, "*");
     g_list_store_append(filters, all_filter);
     g_object_unref(all_filter);
     
     gtk_file_dialog_set_filters(dialog, G_LIST_MODEL(filters));
+    gtk_file_dialog_set_default_filter(dialog, nam_filter);
     g_object_unref(filters);
     
     // Set initial directory to user's home
@@ -75,11 +81,76 @@ on_file_button_clicked(GtkButton *button, ParameterControlData *data)
         g_object_unref(home_file);
     }
     
-    // For now, just update the button with a placeholder
-    gtk_button_set_label(button, "📁 File Dialog (TODO)");
-    g_print("Neural Amp Model file chooser clicked - modern GTK4 file dialog to be implemented\n");
+    // Get the parent window for the dialog
+    GtkRoot *root = gtk_widget_get_root(GTK_WIDGET(button));
+    GtkWindow *parent_window = GTK_IS_WINDOW(root) ? GTK_WINDOW(root) : NULL;
+    
+    // Show async file dialog
+    gtk_file_dialog_open(dialog, parent_window, NULL, 
+                        on_file_dialog_open_finish, data);
     
     g_object_unref(dialog);
+}
+
+// Handle file dialog completion
+static void
+on_file_dialog_open_finish(GObject *source, GAsyncResult *result, gpointer user_data)
+{
+    ParameterControlData *data = (ParameterControlData *)user_data;
+    GtkFileDialog *dialog = GTK_FILE_DIALOG(source);
+    GError *error = NULL;
+    
+    if (!data || !data->plugin || !data->control_widget) {
+        g_warning("Invalid data in file dialog callback");
+        return;
+    }
+    
+    // Get the selected file
+    GFile *file = gtk_file_dialog_open_finish(dialog, result, &error);
+    
+    if (file) {
+        char *file_path = g_file_get_path(file);
+        if (file_path) {
+            g_print("Selected neural model file: %s\n", file_path);
+            
+            // Validate file extension
+            if (g_str_has_suffix(file_path, ".nam") || g_str_has_suffix(file_path, ".nammodel")) {
+                // Send file path to plugin via Atom message
+                ariel_active_plugin_set_file_parameter(data->plugin, file_path);
+                
+                // Update button label to show filename
+                char *basename = g_path_get_basename(file_path);
+                char *label = g_strdup_printf("📁 %s", basename);
+                gtk_button_set_label(GTK_BUTTON(data->control_widget), label);
+                
+                // Add tooltip with full path
+                gtk_widget_set_tooltip_text(data->control_widget, file_path);
+                
+                g_free(basename);
+                g_free(label);
+                
+                g_print("Neural model loaded: %s\n", file_path);
+            } else {
+                g_warning("Invalid file type selected: %s. Please select a .nam or .nammodel file.", file_path);
+                
+                // Show error dialog
+                GtkRoot *root = gtk_widget_get_root(data->control_widget);
+                GtkWindow *parent_window = GTK_IS_WINDOW(root) ? GTK_WINDOW(root) : NULL;
+                GtkAlertDialog *alert = gtk_alert_dialog_new("Invalid File Type");
+                gtk_alert_dialog_set_detail(alert, "Please select a Neural Amp Model file (.nam or .nammodel)");
+                gtk_alert_dialog_show(alert, parent_window);
+                g_object_unref(alert);
+            }
+            
+            g_free(file_path);
+        }
+        g_object_unref(file);
+    } else if (error) {
+        if (error->code != G_IO_ERROR_CANCELLED) {
+            g_warning("File dialog error: %s", error->message);
+        }
+        g_error_free(error);
+    }
 }
 
 
@@ -377,6 +448,9 @@ create_file_parameter_control(ArielActivePlugin *plugin, const LilvPlugin *lilv_
     gtk_widget_add_css_class(control_widget, "suggested-action");
     
     data->control_widget = control_widget;
+    
+    // Add tooltip
+    gtk_widget_set_tooltip_text(control_widget, "Click to select a Neural Amp Model file (.nam or .nammodel)");
     
     // File chooser callback for loading neural models
     g_signal_connect_data(control_widget, "clicked",

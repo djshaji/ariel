@@ -330,3 +330,221 @@ ariel_plugin_manager_free(ArielPluginManager *manager)
     
     g_free(manager);
 }
+
+// Plugin Chain Preset Management Functions
+gboolean
+ariel_save_plugin_chain_preset(ArielPluginManager *manager, const char *preset_name, const char *preset_dir)
+{
+    if (!manager || !preset_name || !preset_dir || !manager->active_plugin_store) {
+        return FALSE;
+    }
+    
+    // Create preset directory if it doesn't exist
+    g_mkdir_with_parents(preset_dir, 0755);
+    
+    // Create chain preset file path
+    char *preset_filename = g_strdup_printf("%s.chain", preset_name);
+    char *preset_path = g_build_filename(preset_dir, preset_filename, NULL);
+    g_free(preset_filename);
+    
+    // Create key file for chain preset data
+    GKeyFile *preset_file = g_key_file_new();
+    
+    guint n_active = g_list_model_get_n_items(G_LIST_MODEL(manager->active_plugin_store));
+    
+    // Save chain metadata
+    g_key_file_set_string(preset_file, "chain", "name", preset_name);
+    g_key_file_set_integer(preset_file, "chain", "plugin_count", n_active);
+    
+    // Save each plugin in the chain
+    for (guint i = 0; i < n_active; i++) {
+        ArielActivePlugin *plugin = g_list_model_get_item(G_LIST_MODEL(manager->active_plugin_store), i);
+        if (!plugin) continue;
+        
+        char *plugin_section = g_strdup_printf("plugin_%u", i);
+        
+        // Save plugin info
+        const LilvPlugin *lilv_plugin = ariel_active_plugin_get_lilv_plugin(plugin);
+        LilvNode *uri_node = lilv_plugin_get_uri(lilv_plugin);
+        const char *plugin_uri = lilv_node_as_uri(uri_node);
+        
+        g_key_file_set_string(preset_file, plugin_section, "uri", plugin_uri);
+        g_key_file_set_string(preset_file, plugin_section, "name", ariel_active_plugin_get_name(plugin));
+        g_key_file_set_boolean(preset_file, plugin_section, "bypass", ariel_active_plugin_get_bypass(plugin));
+        
+        // Save parameters
+        guint n_params = ariel_active_plugin_get_num_parameters(plugin);
+        g_key_file_set_integer(preset_file, plugin_section, "param_count", n_params);
+        
+        for (guint j = 0; j < n_params; j++) {
+            char *param_key = g_strdup_printf("param_%u", j);
+            float value = ariel_active_plugin_get_parameter(plugin, j);
+            g_key_file_set_double(preset_file, plugin_section, param_key, value);
+            g_free(param_key);
+        }
+        
+        g_free(plugin_section);
+        g_object_unref(plugin);
+    }
+    
+    // Save preset file
+    gsize length;
+    char *preset_data = g_key_file_to_data(preset_file, &length, NULL);
+    gboolean success = g_file_set_contents(preset_path, preset_data, length, NULL);
+    
+    // Cleanup
+    g_free(preset_data);
+    g_free(preset_path);
+    g_key_file_free(preset_file);
+    
+    if (success) {
+        g_print("Saved plugin chain preset '%s' with %u plugins\n", preset_name, n_active);
+    }
+    
+    return success;
+}
+
+gboolean
+ariel_load_plugin_chain_preset(ArielPluginManager *manager, ArielAudioEngine *engine, const char *preset_path)
+{
+    if (!manager || !engine || !preset_path || !g_file_test(preset_path, G_FILE_TEST_EXISTS)) {
+        return FALSE;
+    }
+    
+    GKeyFile *preset_file = g_key_file_new();
+    GError *error = NULL;
+    
+    // Load preset file
+    if (!g_key_file_load_from_file(preset_file, preset_path, G_KEY_FILE_NONE, &error)) {
+        g_warning("Failed to load chain preset file %s: %s", preset_path, error->message);
+        g_error_free(error);
+        g_key_file_free(preset_file);
+        return FALSE;
+    }
+    
+    // Clear current active plugins
+    g_list_store_remove_all(manager->active_plugin_store);
+    
+    // Load chain metadata
+    gint plugin_count = g_key_file_get_integer(preset_file, "chain", "plugin_count", NULL);
+    
+    // Load each plugin in the chain
+    for (gint i = 0; i < plugin_count; i++) {
+        char *plugin_section = g_strdup_printf("plugin_%d", i);
+        
+        // Get plugin URI
+        char *plugin_uri = g_key_file_get_string(preset_file, plugin_section, "uri", NULL);
+        if (!plugin_uri) {
+            g_free(plugin_section);
+            continue;
+        }
+        
+        // Find plugin info by URI
+        ArielPluginInfo *plugin_info = NULL;
+        guint n_plugins = g_list_model_get_n_items(G_LIST_MODEL(manager->plugin_store));
+        
+        for (guint j = 0; j < n_plugins; j++) {
+            ArielPluginInfo *info = g_list_model_get_item(G_LIST_MODEL(manager->plugin_store), j);
+            if (info && strcmp(ariel_plugin_info_get_uri(info), plugin_uri) == 0) {
+                plugin_info = info;
+                break;
+            }
+            if (info) g_object_unref(info);
+        }
+        
+        if (!plugin_info) {
+            g_warning("Plugin not found for URI: %s", plugin_uri);
+            g_free(plugin_uri);
+            g_free(plugin_section);
+            continue;
+        }
+        
+        // Load the plugin
+        ArielActivePlugin *active_plugin = ariel_plugin_manager_load_plugin(manager, plugin_info, engine);
+        if (!active_plugin) {
+            g_warning("Failed to load plugin: %s", plugin_uri);
+            g_object_unref(plugin_info);
+            g_free(plugin_uri);
+            g_free(plugin_section);
+            continue;
+        }
+        
+        // Load bypass state
+        if (g_key_file_has_key(preset_file, plugin_section, "bypass", NULL)) {
+            gboolean bypass = g_key_file_get_boolean(preset_file, plugin_section, "bypass", NULL);
+            ariel_active_plugin_set_bypass(active_plugin, bypass);
+        }
+        
+        // Load parameters
+        gint param_count = g_key_file_get_integer(preset_file, plugin_section, "param_count", NULL);
+        guint num_parameters = ariel_active_plugin_get_num_parameters(active_plugin);
+        
+        for (gint j = 0; j < param_count && j < (gint)num_parameters; j++) {
+            char *param_key = g_strdup_printf("param_%d", j);
+            
+            if (g_key_file_has_key(preset_file, plugin_section, param_key, NULL)) {
+                gdouble value = g_key_file_get_double(preset_file, plugin_section, param_key, NULL);
+                ariel_active_plugin_set_parameter(active_plugin, j, (float)value);
+            }
+            
+            g_free(param_key);
+        }
+        
+        g_object_unref(plugin_info);
+        g_object_unref(active_plugin);
+        g_free(plugin_uri);
+        g_free(plugin_section);
+    }
+    
+    g_key_file_free(preset_file);
+    
+    char *preset_name = g_path_get_basename(preset_path);
+    if (g_str_has_suffix(preset_name, ".chain")) {
+        preset_name[strlen(preset_name) - 6] = '\0'; // Remove .chain extension
+    }
+    g_print("Loaded plugin chain preset '%s' with %d plugins\n", preset_name, plugin_count);
+    g_free(preset_name);
+    
+    return TRUE;
+}
+
+char **
+ariel_list_plugin_chain_presets(const char *preset_dir)
+{
+    if (!preset_dir || !g_file_test(preset_dir, G_FILE_TEST_IS_DIR)) {
+        return NULL;
+    }
+    
+    GDir *dir = g_dir_open(preset_dir, 0, NULL);
+    if (!dir) {
+        return NULL;
+    }
+    
+    GPtrArray *preset_list = g_ptr_array_new();
+    const char *filename;
+    
+    while ((filename = g_dir_read_name(dir)) != NULL) {
+        if (g_str_has_suffix(filename, ".chain")) {
+            // Remove .chain extension from filename
+            char *preset_name = g_strndup(filename, strlen(filename) - 6);
+            g_ptr_array_add(preset_list, preset_name);
+        }
+    }
+    
+    g_dir_close(dir);
+    
+    // Convert to NULL-terminated string array
+    g_ptr_array_add(preset_list, NULL);
+    return (char **)g_ptr_array_free(preset_list, FALSE);
+}
+
+void
+ariel_free_plugin_chain_preset_list(char **preset_list)
+{
+    if (!preset_list) return;
+    
+    for (int i = 0; preset_list[i] != NULL; i++) {
+        g_free(preset_list[i]);
+    }
+    g_free(preset_list);
+}

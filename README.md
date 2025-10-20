@@ -1,11 +1,17 @@
 # Ariel
 A cross-platform LV2 host built with GTK4 and lilv.
 ## Features
-- Drag and drop support for loading LV2 plugins and audio files.
-- Basic transport controls: play, stop, record.
-- User-friendly display of plugin parameters.
-- Simple mixer with volume and pan controls for each loaded plugin.
-- Cross-platform compatibility: Linux, Windows, and macOS.
+- **Real-time LV2 plugin hosting** with lilv integration
+- **Drag and drop support** for intuitive plugin loading 
+- **Parameter controls** with real-time adjustment for all plugin parameters
+- **Preset management** - Save and load individual plugin presets
+- **Chain presets** - Save and load entire plugin chains with all parameters
+- **Plugin bypass** functionality for A/B testing
+- **Transport controls** - Play, stop, record with state management
+- **Auto-start audio engine** for immediate plugin processing
+- **Mono plugin support** with automatic stereo conversion
+- **Cross-platform compatibility** - Linux, Windows, and macOS
+- **Modern GTK4 interface** with responsive design
 ## Installation
 
 ### Prerequisites
@@ -202,7 +208,13 @@ sudo ninja -C builddir uninstall
    - Use "Remove All" to clear all active plugins
    - Plugins process audio in the order they appear in the list
 
-5. **Transport Controls**
+5. **Preset Management**
+   - **Individual Plugin Presets**: Save/load presets for individual plugins using the "Save" and "Load" buttons on each plugin
+   - **Chain Presets**: Save entire plugin chains with all parameters using "Save Chain" and "Load Chain" buttons
+   - Presets are stored in `~/.config/ariel/presets/` (individual) and `~/.config/ariel/chain_presets/` (chains)
+   - Chain presets preserve plugin order, all parameter values, and bypass states
+
+6. **Transport Controls**
    - Use Play/Stop buttons in the header bar
    - Record button for future recording functionality
 

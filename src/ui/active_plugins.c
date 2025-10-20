@@ -4,6 +4,14 @@
 static void on_remove_all_clicked(GtkButton *button, ArielWindow *window);
 static void on_remove_plugin_clicked(GtkButton *button, ArielWindow *window);
 static void on_bypass_toggled(GtkToggleButton *button, ArielActivePlugin *plugin);
+static void on_save_preset_clicked(GtkButton *button, gpointer user_data);
+static void on_load_preset_clicked(GtkButton *button, gpointer user_data);
+static void on_save_preset_ok(GtkButton *button, GtkEntry *entry);
+static void on_load_preset_ok(GtkButton *button, GtkDropDown *dropdown);
+static void on_save_chain_preset_clicked(GtkButton *button, ArielWindow *window);
+static void on_load_chain_preset_clicked(GtkButton *button, ArielWindow *window);
+static void on_save_chain_preset_ok(GtkButton *button, gpointer user_data);
+static void on_load_chain_preset_ok(GtkButton *button, gpointer user_data);
 static gboolean on_plugin_drop(GtkDropTarget *target, const GValue *value, double x, double y, ArielWindow *window);
 static GdkDragAction on_drop_enter(GtkDropTarget *target, double x, double y, GtkWidget *plugins_box);
 static void on_drop_leave(GtkDropTarget *target, GtkWidget *plugins_box);
@@ -99,6 +107,169 @@ on_bypass_toggled(GtkToggleButton *button, ArielActivePlugin *plugin)
     ariel_active_plugin_set_bypass(plugin, bypass);
 }
 
+// Callback for save preset button
+static void
+on_save_preset_clicked(G_GNUC_UNUSED GtkButton *button, gpointer user_data)
+{
+    ArielActivePlugin *plugin = (ArielActivePlugin *)user_data;
+    if (!plugin) return;
+    
+    GtkWidget *window = gtk_window_new();
+    gtk_window_set_title(GTK_WINDOW(window), "Save Preset");
+    gtk_window_set_modal(GTK_WINDOW(window), TRUE);
+    gtk_window_set_default_size(GTK_WINDOW(window), 350, 150);
+    
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
+    gtk_widget_set_margin_start(box, 24);
+    gtk_widget_set_margin_end(box, 24);
+    gtk_widget_set_margin_top(box, 24);
+    gtk_widget_set_margin_bottom(box, 24);
+    
+    GtkWidget *label = gtk_label_new("Preset name:");
+    gtk_label_set_xalign(GTK_LABEL(label), 0.0);
+    gtk_box_append(GTK_BOX(box), label);
+    
+    GtkWidget *entry = gtk_entry_new();
+    gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "Enter preset name");
+    gtk_box_append(GTK_BOX(box), entry);
+    
+    GtkWidget *button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_widget_set_halign(button_box, GTK_ALIGN_END);
+    
+    GtkWidget *cancel_btn = gtk_button_new_with_label("Cancel");
+    gtk_box_append(GTK_BOX(button_box), cancel_btn);
+    
+    GtkWidget *save_btn = gtk_button_new_with_label("Save");
+    gtk_widget_add_css_class(save_btn, "suggested-action");
+    gtk_box_append(GTK_BOX(button_box), save_btn);
+    
+    gtk_box_append(GTK_BOX(box), button_box);
+    gtk_window_set_child(GTK_WINDOW(window), box);
+    
+    g_signal_connect(cancel_btn, "clicked", G_CALLBACK(gtk_window_destroy), window);
+    
+    g_signal_connect_swapped(save_btn, "clicked", G_CALLBACK(gtk_window_destroy), window);
+    g_signal_connect(save_btn, "clicked", G_CALLBACK(on_save_preset_ok), entry);
+    
+    g_object_set_data(G_OBJECT(entry), "plugin", plugin);
+    gtk_window_present(GTK_WINDOW(window));
+}
+
+// Helper callback for save preset OK button
+static void
+on_save_preset_ok(G_GNUC_UNUSED GtkButton *button, GtkEntry *entry)
+{
+    ArielActivePlugin *plugin = g_object_get_data(G_OBJECT(entry), "plugin");
+    
+    const char *text = gtk_editable_get_text(GTK_EDITABLE(entry));
+    if (text && strlen(text) > 0) {
+        ArielConfig *config = ariel_config_new();
+        const char *config_dir = ariel_config_get_dir(config);
+        char *preset_dir = g_build_filename(config_dir, "presets", NULL);
+        
+        ariel_active_plugin_save_preset(plugin, text, preset_dir);
+        
+        g_free(preset_dir);
+        ariel_config_free(config);
+    }
+}
+
+// Callback for load preset button
+static void
+on_load_preset_clicked(G_GNUC_UNUSED GtkButton *button, gpointer user_data)
+{
+    ArielActivePlugin *plugin = (ArielActivePlugin *)user_data;
+    if (!plugin) return;
+    
+    // Get config directory for presets
+    ArielConfig *config = ariel_config_new();
+    const char *config_dir = ariel_config_get_dir(config);
+    char *preset_dir = g_build_filename(config_dir, "presets", NULL);
+    
+    // Get list of available presets for this plugin
+    char **preset_list = ariel_active_plugin_list_presets(plugin, preset_dir);
+    
+    if (!preset_list || !preset_list[0]) {
+        g_print("No presets found for plugin %s\n", ariel_active_plugin_get_name(plugin));
+        
+        if (preset_list) ariel_active_plugin_free_preset_list(preset_list);
+        g_free(preset_dir);
+        ariel_config_free(config);
+        return;
+    }
+    
+    GtkWidget *window = gtk_window_new();
+    gtk_window_set_title(GTK_WINDOW(window), "Load Preset");
+    gtk_window_set_modal(GTK_WINDOW(window), TRUE);
+    gtk_window_set_default_size(GTK_WINDOW(window), 350, 200);
+    
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
+    gtk_widget_set_margin_start(box, 24);
+    gtk_widget_set_margin_end(box, 24);
+    gtk_widget_set_margin_top(box, 24);
+    gtk_widget_set_margin_bottom(box, 24);
+    
+    GtkWidget *label = gtk_label_new("Select preset:");
+    gtk_label_set_xalign(GTK_LABEL(label), 0.0);
+    gtk_box_append(GTK_BOX(box), label);
+    
+    // Create dropdown using GtkDropDown
+    GtkStringList *string_list = gtk_string_list_new(NULL);
+    for (int i = 0; preset_list[i] != NULL; i++) {
+        gtk_string_list_append(string_list, preset_list[i]);
+    }
+    
+    GtkWidget *dropdown = gtk_drop_down_new(G_LIST_MODEL(string_list), NULL);
+    gtk_drop_down_set_selected(GTK_DROP_DOWN(dropdown), 0);
+    gtk_box_append(GTK_BOX(box), dropdown);
+    
+    GtkWidget *button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_widget_set_halign(button_box, GTK_ALIGN_END);
+    
+    GtkWidget *cancel_btn = gtk_button_new_with_label("Cancel");
+    gtk_box_append(GTK_BOX(button_box), cancel_btn);
+    
+    GtkWidget *load_btn = gtk_button_new_with_label("Load");
+    gtk_widget_add_css_class(load_btn, "suggested-action");
+    gtk_box_append(GTK_BOX(button_box), load_btn);
+    
+    gtk_box_append(GTK_BOX(box), button_box);
+    gtk_window_set_child(GTK_WINDOW(window), box);
+    
+    g_signal_connect(cancel_btn, "clicked", G_CALLBACK(gtk_window_destroy), window);
+    
+    g_signal_connect_swapped(load_btn, "clicked", G_CALLBACK(gtk_window_destroy), window);
+    g_signal_connect(load_btn, "clicked", G_CALLBACK(on_load_preset_ok), dropdown);
+    
+    g_object_set_data_full(G_OBJECT(dropdown), "preset-list", preset_list, 
+                          (GDestroyNotify)ariel_active_plugin_free_preset_list);
+    g_object_set_data_full(G_OBJECT(dropdown), "preset-dir", preset_dir, g_free);
+    g_object_set_data(G_OBJECT(dropdown), "plugin", plugin);
+    
+    gtk_window_present(GTK_WINDOW(window));
+    ariel_config_free(config);
+}
+
+// Helper callback for load preset OK button
+static void
+on_load_preset_ok(G_GNUC_UNUSED GtkButton *button, GtkDropDown *dropdown)
+{
+    char **preset_list = g_object_get_data(G_OBJECT(dropdown), "preset-list");
+    char *preset_dir = g_object_get_data(G_OBJECT(dropdown), "preset-dir");
+    ArielActivePlugin *plugin = g_object_get_data(G_OBJECT(dropdown), "plugin");
+    
+    guint selected = gtk_drop_down_get_selected(dropdown);
+    if (preset_list && preset_list[selected]) {
+        char *preset_path = g_build_filename(preset_dir, preset_list[selected], NULL);
+        char *full_preset_path = g_strconcat(preset_path, ".preset", NULL);
+        
+        ariel_active_plugin_load_preset(plugin, full_preset_path);
+        
+        g_free(preset_path);
+        g_free(full_preset_path);
+    }
+}
+
 // Drop target callbacks
 static gboolean
 on_plugin_drop(G_GNUC_UNUSED GtkDropTarget *target, const GValue *value, G_GNUC_UNUSED double x, G_GNUC_UNUSED double y, ArielWindow *window)
@@ -180,7 +351,7 @@ ariel_create_active_plugins_view(ArielWindow *window)
     gtk_widget_set_margin_top(main_box, 12);
     gtk_widget_set_margin_bottom(main_box, 12);
     
-    // Create header box with title and remove all button
+    // Create header box with title and buttons
     GtkWidget *header_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
     
     GtkWidget *header = gtk_label_new("Active Plugins");
@@ -188,6 +359,23 @@ ariel_create_active_plugins_view(ArielWindow *window)
     gtk_label_set_xalign(GTK_LABEL(header), 0.0);
     gtk_widget_set_hexpand(header, TRUE);
     gtk_box_append(GTK_BOX(header_box), header);
+    
+    // Save Chain Preset button
+    GtkWidget *save_chain_btn = gtk_button_new_with_label("Save Chain");
+    gtk_widget_add_css_class(save_chain_btn, "suggested-action");
+    gtk_widget_add_css_class(save_chain_btn, "pill");
+    gtk_widget_set_tooltip_text(save_chain_btn, "Save current plugin chain as preset");
+    g_signal_connect(save_chain_btn, "clicked", 
+                     G_CALLBACK(on_save_chain_preset_clicked), window);
+    gtk_box_append(GTK_BOX(header_box), save_chain_btn);
+    
+    // Load Chain Preset button
+    GtkWidget *load_chain_btn = gtk_button_new_with_label("Load Chain");
+    gtk_widget_add_css_class(load_chain_btn, "pill");
+    gtk_widget_set_tooltip_text(load_chain_btn, "Load saved plugin chain preset");
+    g_signal_connect(load_chain_btn, "clicked", 
+                     G_CALLBACK(on_load_chain_preset_clicked), window);
+    gtk_box_append(GTK_BOX(header_box), load_chain_btn);
     
     // Remove All button
     GtkWidget *remove_all_btn = gtk_button_new_with_label("Remove All");
@@ -327,6 +515,23 @@ ariel_create_active_plugin_widget(ArielActivePlugin *plugin, ArielWindow *window
     
     gtk_box_append(GTK_BOX(header_box), bypass_btn);
     
+    // Save Preset button
+    GtkWidget *save_preset_btn = gtk_button_new_with_label("Save");
+    gtk_widget_add_css_class(save_preset_btn, "suggested-action");
+    gtk_widget_add_css_class(save_preset_btn, "pill");
+    gtk_widget_set_tooltip_text(save_preset_btn, "Save current parameters as preset");
+    g_signal_connect(save_preset_btn, "clicked", 
+                     G_CALLBACK(on_save_preset_clicked), plugin);
+    gtk_box_append(GTK_BOX(header_box), save_preset_btn);
+    
+    // Load Preset button
+    GtkWidget *load_preset_btn = gtk_button_new_with_label("Load");
+    gtk_widget_add_css_class(load_preset_btn, "pill");
+    gtk_widget_set_tooltip_text(load_preset_btn, "Load saved preset");
+    g_signal_connect(load_preset_btn, "clicked", 
+                     G_CALLBACK(on_load_preset_clicked), plugin);
+    gtk_box_append(GTK_BOX(header_box), load_preset_btn);
+    
     // Remove button
     GtkWidget *remove_btn = gtk_button_new_with_label("Remove");
     gtk_widget_add_css_class(remove_btn, "destructive-action");
@@ -347,4 +552,275 @@ ariel_create_active_plugin_widget(ArielActivePlugin *plugin, ArielWindow *window
     gtk_frame_set_child(GTK_FRAME(frame), main_box);
     
     return frame;
+}
+
+// Chain preset save/load callbacks
+static void
+on_save_chain_preset_clicked(G_GNUC_UNUSED GtkButton *button, ArielWindow *window)
+{
+    if (!window) return;
+    
+    ArielPluginManager *manager = ariel_app_get_plugin_manager(window->app);
+    if (!manager || !manager->active_plugin_store) return;
+    
+    // Check if there are any active plugins
+    guint n_active = g_list_model_get_n_items(G_LIST_MODEL(manager->active_plugin_store));
+    if (n_active == 0) {
+        // Show message that no plugins are active
+        GtkWidget *dialog = gtk_window_new();
+        gtk_window_set_title(GTK_WINDOW(dialog), "Save Chain Preset");
+        gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
+        gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(window));
+        gtk_window_set_default_size(GTK_WINDOW(dialog), 300, 150);
+        
+        GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
+        gtk_widget_set_margin_start(box, 24);
+        gtk_widget_set_margin_end(box, 24);
+        gtk_widget_set_margin_top(box, 24);
+        gtk_widget_set_margin_bottom(box, 24);
+        
+        GtkWidget *label = gtk_label_new("No active plugins to save.\nLoad some plugins first!");
+        gtk_label_set_justify(GTK_LABEL(label), GTK_JUSTIFY_CENTER);
+        gtk_widget_set_vexpand(label, TRUE);
+        gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
+        gtk_box_append(GTK_BOX(box), label);
+        
+        GtkWidget *close_btn = gtk_button_new_with_label("OK");
+        gtk_widget_add_css_class(close_btn, "suggested-action");
+        g_signal_connect_swapped(close_btn, "clicked", G_CALLBACK(gtk_window_destroy), dialog);
+        gtk_box_append(GTK_BOX(box), close_btn);
+        
+        gtk_window_set_child(GTK_WINDOW(dialog), box);
+        gtk_window_present(GTK_WINDOW(dialog));
+        return;
+    }
+    
+    // Create save dialog
+    GtkWidget *dialog = gtk_window_new();
+    gtk_window_set_title(GTK_WINDOW(dialog), "Save Chain Preset");
+    gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
+    gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(window));
+    gtk_window_set_default_size(GTK_WINDOW(dialog), 400, 150);
+    
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
+    gtk_widget_set_margin_start(box, 24);
+    gtk_widget_set_margin_end(box, 24);
+    gtk_widget_set_margin_top(box, 24);
+    gtk_widget_set_margin_bottom(box, 24);
+    
+    GtkWidget *label = gtk_label_new("Enter preset name:");
+    gtk_widget_set_halign(label, GTK_ALIGN_START);
+    gtk_box_append(GTK_BOX(box), label);
+    
+    GtkWidget *entry = gtk_entry_new();
+    gtk_entry_set_placeholder_text(GTK_ENTRY(entry), "My Chain Preset");
+    gtk_widget_set_hexpand(entry, TRUE);
+    gtk_box_append(GTK_BOX(box), entry);
+    
+    GtkWidget *button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_widget_set_halign(button_box, GTK_ALIGN_END);
+    
+    GtkWidget *cancel_btn = gtk_button_new_with_label("Cancel");
+    g_signal_connect_swapped(cancel_btn, "clicked", G_CALLBACK(gtk_window_destroy), dialog);
+    gtk_box_append(GTK_BOX(button_box), cancel_btn);
+    
+    GtkWidget *save_btn = gtk_button_new_with_label("Save");
+    gtk_widget_add_css_class(save_btn, "suggested-action");
+    g_object_set_data(G_OBJECT(save_btn), "entry", entry);
+    g_object_set_data(G_OBJECT(save_btn), "window", window);
+    g_object_set_data(G_OBJECT(save_btn), "dialog", dialog);
+    g_signal_connect(save_btn, "clicked", G_CALLBACK(on_save_chain_preset_ok), NULL);
+    gtk_box_append(GTK_BOX(button_box), save_btn);
+    
+    gtk_box_append(GTK_BOX(box), button_box);
+    
+    gtk_window_set_child(GTK_WINDOW(dialog), box);
+    gtk_window_present(GTK_WINDOW(dialog));
+}
+
+static void
+on_save_chain_preset_ok(GtkButton *button, G_GNUC_UNUSED gpointer user_data)
+{
+    GtkEntry *entry = g_object_get_data(G_OBJECT(button), "entry");
+    ArielWindow *window = g_object_get_data(G_OBJECT(button), "window");
+    GtkWidget *dialog = g_object_get_data(G_OBJECT(button), "dialog");
+    
+    if (!entry || !window) return;
+    
+    const char *preset_name = gtk_entry_buffer_get_text(gtk_entry_get_buffer(entry));
+    if (!preset_name || strlen(preset_name) == 0) {
+        return; // No name entered
+    }
+    
+    // Get preset directory from config
+    ArielPluginManager *manager = ariel_app_get_plugin_manager(window->app);
+    if (!manager) return;
+    
+    ArielConfig *config = ariel_config_new();
+    const char *config_dir = ariel_config_get_dir(config);
+    char *preset_dir = g_build_filename(config_dir, "chain_presets", NULL);
+    
+    // Save the chain preset
+    gboolean success = ariel_save_plugin_chain_preset(manager, preset_name, preset_dir);
+    
+    if (success) {
+        g_print("Saved chain preset: %s\n", preset_name);
+    } else {
+        g_warning("Failed to save chain preset: %s", preset_name);
+    }
+    
+    g_free(preset_dir);
+    ariel_config_free(config);
+    
+    if (dialog) {
+        gtk_window_destroy(GTK_WINDOW(dialog));
+    }
+}
+
+static void
+on_load_chain_preset_clicked(G_GNUC_UNUSED GtkButton *button, ArielWindow *window)
+{
+    if (!window) return;
+    
+    // Get preset directory
+    ArielPluginManager *manager = ariel_app_get_plugin_manager(window->app);
+    if (!manager) return;
+    
+    ArielConfig *config = ariel_config_new();
+    const char *config_dir = ariel_config_get_dir(config);
+    char *preset_dir = g_build_filename(config_dir, "chain_presets", NULL);
+    
+    // Get list of available presets
+    char **preset_list = ariel_list_plugin_chain_presets(preset_dir);
+    if (!preset_list || !preset_list[0]) {
+        // No presets available
+        GtkWidget *dialog = gtk_window_new();
+        gtk_window_set_title(GTK_WINDOW(dialog), "Load Chain Preset");
+        gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
+        gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(window));
+        gtk_window_set_default_size(GTK_WINDOW(dialog), 300, 150);
+        
+        GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
+        gtk_widget_set_margin_start(box, 24);
+        gtk_widget_set_margin_end(box, 24);
+        gtk_widget_set_margin_top(box, 24);
+        gtk_widget_set_margin_bottom(box, 24);
+        
+        GtkWidget *label = gtk_label_new("No chain presets found.\nSave a chain preset first!");
+        gtk_label_set_justify(GTK_LABEL(label), GTK_JUSTIFY_CENTER);
+        gtk_widget_set_vexpand(label, TRUE);
+        gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
+        gtk_box_append(GTK_BOX(box), label);
+        
+        GtkWidget *close_btn = gtk_button_new_with_label("OK");
+        gtk_widget_add_css_class(close_btn, "suggested-action");
+        g_signal_connect_swapped(close_btn, "clicked", G_CALLBACK(gtk_window_destroy), dialog);
+        gtk_box_append(GTK_BOX(box), close_btn);
+        
+        gtk_window_set_child(GTK_WINDOW(dialog), box);
+        gtk_window_present(GTK_WINDOW(dialog));
+        
+        if (preset_list) ariel_free_plugin_chain_preset_list(preset_list);
+        g_free(preset_dir);
+        ariel_config_free(config);
+        return;
+    }
+    
+    // Create load dialog with dropdown
+    GtkWidget *dialog = gtk_window_new();
+    gtk_window_set_title(GTK_WINDOW(dialog), "Load Chain Preset");
+    gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
+    gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(window));
+    gtk_window_set_default_size(GTK_WINDOW(dialog), 400, 150);
+    
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
+    gtk_widget_set_margin_start(box, 24);
+    gtk_widget_set_margin_end(box, 24);
+    gtk_widget_set_margin_top(box, 24);
+    gtk_widget_set_margin_bottom(box, 24);
+    
+    GtkWidget *label = gtk_label_new("Select chain preset to load:");
+    gtk_widget_set_halign(label, GTK_ALIGN_START);
+    gtk_box_append(GTK_BOX(box), label);
+    
+    // Create string list for dropdown
+    GtkStringList *string_list = gtk_string_list_new(NULL);
+    for (int i = 0; preset_list[i] != NULL; i++) {
+        gtk_string_list_append(string_list, preset_list[i]);
+    }
+    
+    GtkWidget *dropdown = gtk_drop_down_new(G_LIST_MODEL(string_list), NULL);
+    gtk_widget_set_hexpand(dropdown, TRUE);
+    gtk_box_append(GTK_BOX(box), dropdown);
+    
+    GtkWidget *button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_widget_set_halign(button_box, GTK_ALIGN_END);
+    
+    GtkWidget *cancel_btn = gtk_button_new_with_label("Cancel");
+    g_signal_connect_swapped(cancel_btn, "clicked", G_CALLBACK(gtk_window_destroy), dialog);
+    gtk_box_append(GTK_BOX(button_box), cancel_btn);
+    
+    GtkWidget *load_btn = gtk_button_new_with_label("Load");
+    gtk_widget_add_css_class(load_btn, "suggested-action");
+    g_object_set_data(G_OBJECT(load_btn), "dropdown", dropdown);
+    g_object_set_data(G_OBJECT(load_btn), "window", window);
+    g_object_set_data(G_OBJECT(load_btn), "dialog", dialog);
+    g_object_set_data(G_OBJECT(load_btn), "preset_dir", g_strdup(preset_dir));
+    g_signal_connect(load_btn, "clicked", G_CALLBACK(on_load_chain_preset_ok), NULL);
+    gtk_box_append(GTK_BOX(button_box), load_btn);
+    
+    gtk_box_append(GTK_BOX(box), button_box);
+    
+    gtk_window_set_child(GTK_WINDOW(dialog), box);
+    gtk_window_present(GTK_WINDOW(dialog));
+    
+    ariel_free_plugin_chain_preset_list(preset_list);
+    g_free(preset_dir);
+    ariel_config_free(config);
+}
+
+static void
+on_load_chain_preset_ok(GtkButton *button, G_GNUC_UNUSED gpointer user_data)
+{
+    GtkDropDown *dropdown = g_object_get_data(G_OBJECT(button), "dropdown");
+    ArielWindow *window = g_object_get_data(G_OBJECT(button), "window");
+    GtkWidget *dialog = g_object_get_data(G_OBJECT(button), "dialog");
+    char *preset_dir = g_object_get_data(G_OBJECT(button), "preset_dir");
+    
+    if (!dropdown || !window || !preset_dir) return;
+    
+    // Get selected preset name
+    GtkStringObject *selected = gtk_drop_down_get_selected_item(dropdown);
+    if (!selected) return;
+    
+    const char *preset_name = gtk_string_object_get_string(selected);
+    if (!preset_name) return;
+    
+    // Build preset file path
+    char *preset_filename = g_strdup_printf("%s.chain", preset_name);
+    char *preset_path = g_build_filename(preset_dir, preset_filename, NULL);
+    
+    // Load the chain preset
+    ArielPluginManager *manager = ariel_app_get_plugin_manager(window->app);
+    ArielAudioEngine *engine = ariel_app_get_audio_engine(window->app);
+    
+    if (manager && engine) {
+        gboolean success = ariel_load_plugin_chain_preset(manager, engine, preset_path);
+        
+        if (success) {
+            g_print("Loaded chain preset: %s\n", preset_name);
+            // Update the active plugins view
+            ariel_update_active_plugins_view(window);
+        } else {
+            g_warning("Failed to load chain preset: %s", preset_name);
+        }
+    }
+    
+    g_free(preset_filename);
+    g_free(preset_path);
+    g_free(preset_dir);
+    
+    if (dialog) {
+        gtk_window_destroy(GTK_WINDOW(dialog));
+    }
 }

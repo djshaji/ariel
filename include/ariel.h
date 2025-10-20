@@ -142,6 +142,19 @@ guint ariel_active_plugin_get_n_audio_inputs(ArielActivePlugin *plugin);
 guint ariel_active_plugin_get_n_audio_outputs(ArielActivePlugin *plugin);
 void ariel_active_plugin_set_bypass(ArielActivePlugin *plugin, gboolean bypass);
 gboolean ariel_active_plugin_get_bypass(ArielActivePlugin *plugin);
+
+// Preset Management
+gboolean ariel_active_plugin_save_preset(ArielActivePlugin *plugin, const char *preset_name, const char *preset_dir);
+gboolean ariel_active_plugin_load_preset(ArielActivePlugin *plugin, const char *preset_path);
+char **ariel_active_plugin_list_presets(ArielActivePlugin *plugin, const char *preset_dir);
+void ariel_active_plugin_free_preset_list(char **preset_list);
+
+// Plugin Chain Presets
+gboolean ariel_save_plugin_chain_preset(ArielPluginManager *manager, const char *preset_name, const char *preset_dir);
+gboolean ariel_load_plugin_chain_preset(ArielPluginManager *manager, ArielAudioEngine *engine, const char *preset_path);
+char **ariel_list_plugin_chain_presets(const char *preset_dir);
+void ariel_free_plugin_chain_preset_list(char **preset_list);
+
 GtkWidget *ariel_create_parameter_controls(ArielActivePlugin *plugin);
 
 // Configuration

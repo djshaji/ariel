@@ -458,3 +458,174 @@ ariel_active_plugin_get_bypass(ArielActivePlugin *plugin)
 {
     return plugin ? plugin->bypass : FALSE;
 }
+
+// Preset Management Functions
+gboolean
+ariel_active_plugin_save_preset(ArielActivePlugin *plugin, const char *preset_name, const char *preset_dir)
+{
+    if (!plugin || !preset_name || !preset_dir) {
+        return FALSE;
+    }
+    
+    // Create preset directory if it doesn't exist
+    g_mkdir_with_parents(preset_dir, 0755);
+    
+    // Create preset file path
+    char *preset_filename = g_strdup_printf("%s.preset", preset_name);
+    char *preset_path = g_build_filename(preset_dir, preset_filename, NULL);
+    g_free(preset_filename);
+    
+    // Create key file for preset data
+    GKeyFile *preset_file = g_key_file_new();
+    
+    // Save plugin information
+    g_key_file_set_string(preset_file, "plugin", "uri", ariel_plugin_info_get_uri(plugin->plugin_info));
+    g_key_file_set_string(preset_file, "plugin", "name", plugin->name);
+    g_key_file_set_boolean(preset_file, "plugin", "bypass", plugin->bypass);
+    
+    // Save parameter values
+    g_key_file_set_integer(preset_file, "parameters", "count", plugin->n_control_inputs);
+    
+    for (guint i = 0; i < plugin->n_control_inputs; i++) {
+        char *param_key = g_strdup_printf("param_%u", i);
+        g_key_file_set_double(preset_file, "parameters", param_key, plugin->control_input_values[i]);
+        g_free(param_key);
+    }
+    
+    // Save preset file
+    gsize length;
+    char *preset_data = g_key_file_to_data(preset_file, &length, NULL);
+    gboolean success = g_file_set_contents(preset_path, preset_data, length, NULL);
+    
+    // Cleanup
+    g_free(preset_data);
+    g_free(preset_path);
+    g_key_file_free(preset_file);
+    
+    if (success) {
+        g_print("Saved preset '%s' for plugin %s\n", preset_name, plugin->name);
+    }
+    
+    return success;
+}
+
+gboolean
+ariel_active_plugin_load_preset(ArielActivePlugin *plugin, const char *preset_path)
+{
+    if (!plugin || !preset_path || !g_file_test(preset_path, G_FILE_TEST_EXISTS)) {
+        return FALSE;
+    }
+    
+    GKeyFile *preset_file = g_key_file_new();
+    GError *error = NULL;
+    
+    // Load preset file
+    if (!g_key_file_load_from_file(preset_file, preset_path, G_KEY_FILE_NONE, &error)) {
+        g_warning("Failed to load preset file %s: %s", preset_path, error->message);
+        g_error_free(error);
+        g_key_file_free(preset_file);
+        return FALSE;
+    }
+    
+    // Verify plugin URI matches
+    char *saved_uri = g_key_file_get_string(preset_file, "plugin", "uri", NULL);
+    const char *current_uri = ariel_plugin_info_get_uri(plugin->plugin_info);
+    
+    if (!saved_uri || strcmp(saved_uri, current_uri) != 0) {
+        g_warning("Preset plugin URI mismatch: expected %s, got %s", current_uri, saved_uri ? saved_uri : "NULL");
+        g_free(saved_uri);
+        g_key_file_free(preset_file);
+        return FALSE;
+    }
+    g_free(saved_uri);
+    
+    // Load bypass state
+    if (g_key_file_has_key(preset_file, "plugin", "bypass", NULL)) {
+        gboolean bypass = g_key_file_get_boolean(preset_file, "plugin", "bypass", NULL);
+        ariel_active_plugin_set_bypass(plugin, bypass);
+    }
+    
+    // Load parameter values
+    gint param_count = g_key_file_get_integer(preset_file, "parameters", "count", NULL);
+    
+    for (gint i = 0; i < param_count && i < (gint)plugin->n_control_inputs; i++) {
+        char *param_key = g_strdup_printf("param_%d", i);
+        
+        if (g_key_file_has_key(preset_file, "parameters", param_key, NULL)) {
+            gdouble value = g_key_file_get_double(preset_file, "parameters", param_key, NULL);
+            plugin->control_input_values[i] = (float)value;
+        }
+        
+        g_free(param_key);
+    }
+    
+    g_key_file_free(preset_file);
+    
+    char *preset_name = g_path_get_basename(preset_path);
+    if (g_str_has_suffix(preset_name, ".preset")) {
+        preset_name[strlen(preset_name) - 7] = '\0'; // Remove .preset extension
+    }
+    g_print("Loaded preset '%s' for plugin %s\n", preset_name, plugin->name);
+    g_free(preset_name);
+    
+    return TRUE;
+}
+
+char **
+ariel_active_plugin_list_presets(ArielActivePlugin *plugin, const char *preset_dir)
+{
+    if (!plugin || !preset_dir || !g_file_test(preset_dir, G_FILE_TEST_IS_DIR)) {
+        return NULL;
+    }
+    
+    GDir *dir = g_dir_open(preset_dir, 0, NULL);
+    if (!dir) {
+        return NULL;
+    }
+    
+    GPtrArray *preset_list = g_ptr_array_new();
+    const char *filename;
+    
+    // Get plugin URI for filtering
+    const char *plugin_uri = ariel_plugin_info_get_uri(plugin->plugin_info);
+    
+    while ((filename = g_dir_read_name(dir)) != NULL) {
+        if (g_str_has_suffix(filename, ".preset")) {
+            char *preset_path = g_build_filename(preset_dir, filename, NULL);
+            
+            // Check if preset is for this plugin
+            GKeyFile *preset_file = g_key_file_new();
+            if (g_key_file_load_from_file(preset_file, preset_path, G_KEY_FILE_NONE, NULL)) {
+                char *saved_uri = g_key_file_get_string(preset_file, "plugin", "uri", NULL);
+                
+                if (saved_uri && strcmp(saved_uri, plugin_uri) == 0) {
+                    // Remove .preset extension from filename
+                    char *preset_name = g_strndup(filename, strlen(filename) - 7);
+                    g_ptr_array_add(preset_list, preset_name);
+                }
+                
+                g_free(saved_uri);
+            }
+            
+            g_key_file_free(preset_file);
+            g_free(preset_path);
+        }
+    }
+    
+    g_dir_close(dir);
+    
+    // Convert to NULL-terminated string array
+    g_ptr_array_add(preset_list, NULL);
+    return (char **)g_ptr_array_free(preset_list, FALSE);
+}
+
+void
+ariel_active_plugin_free_preset_list(char **preset_list)
+{
+    if (!preset_list) return;
+    
+    for (int i = 0; preset_list[i] != NULL; i++) {
+        g_free(preset_list[i]);
+    }
+    g_free(preset_list);
+}

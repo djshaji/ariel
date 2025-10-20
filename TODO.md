@@ -22,7 +22,7 @@
   - [x] Generate parameter controls dynamically based on plugin metadata
   - [x] Implement parameter change communication between UI and audio threads
   - [ ] Add parameter automation support
-  - [ ] Save/restore plugin presets
+  - [x] Save/restore plugin presets ✅
 
 ### User Interface Enhancements
 - [x] **Drag & Drop Support** - Enable plugin loading via drag and drop from plugin list to active plugins ✅

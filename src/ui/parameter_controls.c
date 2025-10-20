@@ -128,57 +128,14 @@ is_path_parameter(const LilvPlugin *plugin, const LilvPort *port)
 }
 
 // Check if plugin has LV2 Parameters with atom:Path range
+// This should only return true for plugins that actually use atom-based parameter control
+// Not for regular control ports
 static gboolean
 is_plugin_parameter_path(const LilvPlugin *plugin, const LilvPort *port)
 {
-    ArielApp *app = ARIEL_APP(g_application_get_default());
-    ArielPluginManager *manager = ariel_app_get_plugin_manager(app);
-    
-    if (!manager || !manager->world) return FALSE;
-    
-    // Get plugin URI to check for parameters
-    const LilvNode *plugin_uri = lilv_plugin_get_uri(plugin);
-    if (!plugin_uri) return FALSE;
-    
-    // Look for plugin parameters with atom:Path range
-    LilvNode *param_uri = lilv_new_uri(manager->world, "http://lv2plug.in/ns/lv2core#Parameter");
-    LilvNode *range_uri = lilv_new_uri(manager->world, "http://www.w3.org/2000/01/rdf-schema#range");
-    LilvNode *path_uri = lilv_new_uri(manager->world, LV2_ATOM__Path);
-    LilvNode *writable_uri = lilv_new_uri(manager->world, "http://lv2plug.in/ns/ext/patch#writable");
-    
-    // Check if plugin has patch:writable parameters with atom:Path range
-    LilvNodes *writables = lilv_world_find_nodes(manager->world, plugin_uri, writable_uri, NULL);
-    if (writables) {
-        LILV_FOREACH(nodes, i, writables) {
-            const LilvNode *writable = lilv_nodes_get(writables, i);
-            
-            // Check if this parameter has rdfs:range atom:Path
-            LilvNodes *ranges = lilv_world_find_nodes(manager->world, writable, range_uri, NULL);
-            if (ranges) {
-                LILV_FOREACH(nodes, j, ranges) {
-                    const LilvNode *range = lilv_nodes_get(ranges, j);
-                    if (lilv_node_equals(range, path_uri)) {
-                        // This parameter has atom:Path range - it's a file parameter
-                        lilv_nodes_free(ranges);
-                        lilv_nodes_free(writables);
-                        lilv_node_free(param_uri);
-                        lilv_node_free(range_uri);
-                        lilv_node_free(path_uri);
-                        lilv_node_free(writable_uri);
-                        return TRUE;
-                    }
-                }
-                lilv_nodes_free(ranges);
-            }
-        }
-        lilv_nodes_free(writables);
-    }
-    
-    lilv_node_free(param_uri);
-    lilv_node_free(range_uri);
-    lilv_node_free(path_uri);
-    lilv_node_free(writable_uri);
-    
+    // For now, disable this detection to prevent buffer overflow
+    // The Neural Amp Modeler uses Atom ports for parameter control, not regular control ports
+    // Regular control ports (Input Lvl, Output Lvl) should use normal sliders
     return FALSE;
 }
 

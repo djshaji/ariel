@@ -3,6 +3,126 @@
 // Forward declaration
 void ariel_free_lv2_features(LV2_Feature **features);
 
+// Worker schedule work item structure
+typedef struct {
+    ArielActivePlugin *plugin;
+    uint32_t size;
+    void *data;
+} ArielWorkerWork;
+
+// Worker thread function
+static void
+ariel_worker_thread_func(gpointer data, gpointer user_data)
+{
+    ArielWorkerWork *work = (ArielWorkerWork *)data;
+    ArielWorkerSchedule *worker = (ArielWorkerSchedule *)user_data;
+    
+    if (!work || !work->plugin) {
+        g_free(work);
+        return;
+    }
+    
+    // In a full implementation, this would call the plugin's work interface
+    // For now, we'll just simulate work processing
+    g_print("Processing worker task for plugin, size: %u\n", work->size);
+    
+    // Simulate some work
+    g_usleep(1000); // 1ms of work
+    
+    // Send response back to plugin (placeholder)
+    ariel_worker_respond(work->plugin, work->size, work->data);
+    
+    // Cleanup
+    g_free(work->data);
+    g_free(work);
+}
+
+// Create new worker schedule
+ArielWorkerSchedule *
+ariel_worker_schedule_new(void)
+{
+    ArielWorkerSchedule *worker = g_malloc0(sizeof(ArielWorkerSchedule));
+    
+    // Create thread pool with 2 worker threads
+    worker->thread_pool = g_thread_pool_new(ariel_worker_thread_func,
+                                           worker,
+                                           2, // max threads
+                                           FALSE, // exclusive
+                                           NULL);
+    
+    g_mutex_init(&worker->work_mutex);
+    worker->work_queue = g_queue_new();
+    
+    g_print("Created LV2 worker schedule with thread pool\n");
+    return worker;
+}
+
+// Free worker schedule
+void
+ariel_worker_schedule_free(ArielWorkerSchedule *worker)
+{
+    if (!worker) return;
+    
+    // Shutdown thread pool
+    if (worker->thread_pool) {
+        g_thread_pool_free(worker->thread_pool, FALSE, TRUE);
+    }
+    
+    // Clear work queue
+    if (worker->work_queue) {
+        ArielWorkerWork *work;
+        while ((work = g_queue_pop_head(worker->work_queue)) != NULL) {
+            g_free(work->data);
+            g_free(work);
+        }
+        g_queue_free(worker->work_queue);
+    }
+    
+    g_mutex_clear(&worker->work_mutex);
+    g_free(worker);
+}
+
+// LV2 Worker Schedule interface implementation
+LV2_Worker_Status
+ariel_worker_schedule(LV2_Worker_Schedule_Handle handle, uint32_t size, const void *data)
+{
+    ArielWorkerSchedule *worker = (ArielWorkerSchedule *)handle;
+    if (!worker || !data) return LV2_WORKER_ERR_UNKNOWN;
+    
+    // Create work item
+    ArielWorkerWork *work = g_malloc0(sizeof(ArielWorkerWork));
+    work->plugin = worker->plugin;
+    work->size = size;
+    work->data = g_malloc(size);
+    memcpy(work->data, data, size);
+    
+    // Schedule work in thread pool
+    GError *error = NULL;
+    gboolean success = g_thread_pool_push(worker->thread_pool, work, &error);
+    
+    if (!success) {
+        g_warning("Failed to schedule worker task: %s", error ? error->message : "Unknown error");
+        if (error) g_error_free(error);
+        g_free(work->data);
+        g_free(work);
+        return LV2_WORKER_ERR_UNKNOWN;
+    }
+    
+    g_print("Scheduled worker task, size: %u\n", size);
+    return LV2_WORKER_SUCCESS;
+}
+
+// Worker response function (called from worker thread)
+void
+ariel_worker_respond(ArielActivePlugin *plugin, uint32_t size, const void *data)
+{
+    if (!plugin) return;
+    
+    // In a full implementation, this would call the plugin's work_response interface
+    // through a safe mechanism (like a lock-free queue to the audio thread)
+    g_print("Worker response for plugin, size: %u\n", size);
+}
+
 // LV2 State interface implementation
 static LV2_State_Status
 ariel_state_store(LV2_State_Handle handle,
@@ -187,8 +307,8 @@ ariel_create_lv2_features(ArielPluginManager *manager, ArielAudioEngine *engine)
 {
     if (!manager || !engine) return NULL;
     
-    // Allocate features array (map, unmap, options, makePath, mapPath, NULL terminator)
-    LV2_Feature **features = g_malloc0(6 * sizeof(LV2_Feature *));
+    // Allocate features array (map, unmap, options, makePath, mapPath, schedule, NULL terminator)
+    LV2_Feature **features = g_malloc0(7 * sizeof(LV2_Feature *));
     
     // URID Map feature
     LV2_URID_Map *map_feature = g_malloc0(sizeof(LV2_URID_Map));
@@ -237,15 +357,24 @@ ariel_create_lv2_features(ArielPluginManager *manager, ArielAudioEngine *engine)
     features[4]->URI = LV2_STATE__mapPath;
     features[4]->data = map_path;
     
+    // Worker Schedule feature
+    LV2_Worker_Schedule *schedule = g_malloc0(sizeof(LV2_Worker_Schedule));
+    schedule->handle = manager->worker_schedule;
+    schedule->schedule_work = ariel_worker_schedule;
+    
+    features[5] = g_malloc0(sizeof(LV2_Feature));
+    features[5]->URI = LV2_WORKER__schedule;
+    features[5]->data = schedule;
+    
     // Pre-map important Atom URIs including Path
     ariel_urid_map(manager->urid_map, LV2_ATOM__Path);
     ariel_urid_map(manager->urid_map, LV2_ATOM__String);
     ariel_urid_map(manager->urid_map, LV2_ATOM__URI);
     
     // NULL terminator
-    features[5] = NULL;
+    features[6] = NULL;
     
-    g_print("Created LV2 features: URID Map/Unmap, Options, State Make Path, Map Path\n");
+    g_print("Created LV2 features: URID Map/Unmap, Options, State Make Path, Map Path, Worker Schedule\n");
     return features;
 }
 
@@ -257,6 +386,9 @@ ariel_free_lv2_features(LV2_Feature **features)
     for (int i = 0; features[i] != NULL; i++) {
         if (g_strcmp0(features[i]->URI, LV2_OPTIONS__options) == 0) {
             // Free options array
+            g_free(features[i]->data);
+        } else if (g_strcmp0(features[i]->URI, LV2_WORKER__schedule) == 0) {
+            // Free worker schedule
             g_free(features[i]->data);
         } else {
             // Free other feature data
@@ -411,6 +543,16 @@ ariel_plugin_manager_new(void)
     manager->urid_map = ariel_urid_map_new();
     if (!manager->urid_map) {
         g_warning("Failed to initialize URID map");
+        ariel_config_free(manager->config);
+        g_free(manager);
+        return NULL;
+    }
+    
+    // Initialize worker schedule
+    manager->worker_schedule = ariel_worker_schedule_new();
+    if (!manager->worker_schedule) {
+        g_warning("Failed to initialize worker schedule");
+        ariel_urid_map_free(manager->urid_map);
         ariel_config_free(manager->config);
         g_free(manager);
         return NULL;
@@ -602,6 +744,11 @@ ariel_plugin_manager_load_plugin(ArielPluginManager *manager, ArielPluginInfo *p
         return NULL;
     }
     
+    // Set plugin reference in worker schedule for this plugin
+    if (manager->worker_schedule) {
+        manager->worker_schedule->plugin = active_plugin;
+    }
+    
     // Add to active plugins list
     g_list_store_append(manager->active_plugin_store, active_plugin);
     
@@ -626,6 +773,9 @@ ariel_plugin_manager_free(ArielPluginManager *manager)
     }
     if (manager->features) {
         ariel_free_lv2_features(manager->features);
+    }
+    if (manager->worker_schedule) {
+        ariel_worker_schedule_free(manager->worker_schedule);
     }
     if (manager->urid_map) {
         ariel_urid_map_free(manager->urid_map);

@@ -11,6 +11,7 @@
 #include <lv2/options/options.h>
 #include <lv2/state/state.h>
 #include <lv2/atom/atom.h>
+#include <lv2/worker/worker.h>
 
 #define ARIEL_APP_ID "com.github.djshaji.ariel"
 #define APP "Ariel"
@@ -81,6 +82,14 @@ typedef struct {
     uint32_t next_id;
 } ArielURIDMap;
 
+// Worker schedule structure for LV2 worker feature
+typedef struct {
+    GThreadPool *thread_pool;
+    GMutex work_mutex;
+    GQueue *work_queue;
+    ArielActivePlugin *plugin;
+} ArielWorkerSchedule;
+
 // Plugin manager structure
 struct _ArielPluginManager {
     LilvWorld *world;
@@ -89,6 +98,7 @@ struct _ArielPluginManager {
     GListStore *active_plugin_store;
     ArielConfig *config;
     ArielURIDMap *urid_map;
+    ArielWorkerSchedule *worker_schedule;
     LV2_Feature **features;
 };
 
@@ -202,6 +212,12 @@ void ariel_free_lv2_features(LV2_Feature **features);
 char *ariel_map_absolute_path(LV2_State_Handle handle, const char *absolute_path);
 char *ariel_map_abstract_path(LV2_State_Handle handle, const char *abstract_path);
 LV2_URID ariel_get_atom_path_urid(ArielPluginManager *manager);
+
+// LV2 Worker Schedule support
+ArielWorkerSchedule *ariel_worker_schedule_new(void);
+void ariel_worker_schedule_free(ArielWorkerSchedule *worker);
+LV2_Worker_Status ariel_worker_schedule(LV2_Worker_Schedule_Handle handle, uint32_t size, const void *data);
+void ariel_worker_respond(ArielActivePlugin *plugin, uint32_t size, const void *data);
 
 // JACK callbacks
 int ariel_jack_process_callback(jack_nframes_t nframes, void *arg);

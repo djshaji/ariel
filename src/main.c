@@ -43,6 +43,9 @@ ariel_app_activate(GApplication *application)
     ArielApp *app = ARIEL_APP(application);
     ArielWindow *window;
     
+    // Load custom CSS if available
+    ariel_load_custom_css();
+    
     window = ariel_window_new(app);
     gtk_window_present(GTK_WINDOW(window));
 }
@@ -75,6 +78,44 @@ ariel_app_get_plugin_manager(ArielApp *app)
 {
     g_return_val_if_fail(ARIEL_IS_APP(app), NULL);
     return app->plugin_manager;
+}
+
+void
+ariel_load_custom_css(void)
+{
+    // Get config directory
+    const char *config_dir = g_get_user_config_dir();
+    if (!config_dir) {
+        return;
+    }
+    
+    char *ariel_config_dir = g_build_filename(config_dir, "ariel", NULL);
+    char *css_file_path = g_build_filename(ariel_config_dir, "style.css", NULL);
+    
+    // Check if custom CSS file exists
+    if (g_file_test(css_file_path, G_FILE_TEST_EXISTS)) {
+        GtkCssProvider *css_provider = gtk_css_provider_new();
+        
+        // Load the CSS file
+        gtk_css_provider_load_from_path(css_provider, css_file_path);
+        
+        // Apply CSS to the default display
+        GdkDisplay *display = gdk_display_get_default();
+        if (display) {
+            gtk_style_context_add_provider_for_display(display,
+                                                      GTK_STYLE_PROVIDER(css_provider),
+                                                      GTK_STYLE_PROVIDER_PRIORITY_USER);
+            
+            g_print("Loaded custom CSS from: %s\n", css_file_path);
+        } else {
+            g_warning("Failed to get default display for CSS loading");
+        }
+        
+        g_object_unref(css_provider);
+    }
+    
+    g_free(ariel_config_dir);
+    g_free(css_file_path);
 }
 
 int

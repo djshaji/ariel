@@ -82,6 +82,7 @@ struct _ArielPluginManager {
 ArielApp *ariel_app_new(void);
 ArielAudioEngine *ariel_app_get_audio_engine(ArielApp *app);
 ArielPluginManager *ariel_app_get_plugin_manager(ArielApp *app);
+void ariel_load_custom_css(void);
 
 // Window
 ArielWindow *ariel_window_new(ArielApp *app);

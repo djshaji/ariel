@@ -49,6 +49,7 @@
 
 ## User Interface
 - ✅ **Modern GTK4 UI** - Clean interface using contemporary GTK4 widgets
+- ✅ **Custom CSS Theming** - Load custom styles from `~/.config/ariel/style.css` for personalized appearance
 - ✅ **Plugin Browser** - GtkListView displaying all discovered LV2 plugins with search and category filtering
 - ✅ **Plugin Search** - Real-time filtering with search entry widget supporting name/author/URI/category search
 - ✅ **Category Dropdown** - Filter plugins by type with 40+ categories (Distortion, Reverb, Analyzer, etc.)

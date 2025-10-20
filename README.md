@@ -4,6 +4,7 @@ A cross-platform LV2 host built with GTK4 and lilv.
 - **Real-time LV2 plugin hosting** with lilv integration
 - **Intelligent plugin search** - Quickly find plugins among 865+ discovered LV2 plugins by name, author, or URI
 - **Category filtering** - Browse plugins by type (Distortion, Reverb, Analyzer, etc.) with 40+ categories
+- **Custom CSS theming** - Load custom styles from `~/.config/ariel/style.css` for personalized appearance
 - **Drag and drop support** for intuitive plugin loading 
 - **Parameter controls** with real-time adjustment for all plugin parameters
 - **Preset management** - Save and load individual plugin presets
@@ -257,12 +258,39 @@ Before using Ariel, ensure your audio setup is working:
 - **Analyzers**: Spectrum analyzers, meters, tuners
 - **MIDI Effects**: Note processors, arpegiators (MIDI support coming soon)
 
+## Customization
+
+### Custom CSS Theming
+
+Ariel supports custom CSS styling for complete visual customization:
+
+1. **Create CSS file**: `~/.config/ariel/style.css`
+2. **Add custom styles**: Use standard CSS syntax to modify the interface
+3. **Available selectors**: `window`, `.title-2`, `.suggested-action`, `.card`, `button`, etc.
+4. **Example styles**:
+   ```css
+   /* Custom Ariel theme */
+   window {
+       background: linear-gradient(45deg, #1a1a2e, #16213e);
+   }
+   
+   .title-2 {
+       color: #00d4aa;
+       font-weight: bold;
+   }
+   
+   .suggested-action {
+       background: linear-gradient(45deg, #00d4aa, #0f3460);
+   }
+   ```
+
 ### Tips
 
 - **Mono Plugins**: Automatically work with stereo audio - mono output is duplicated to both channels
 - **Plugin Order**: Drag plugins in the active list to reorder them
 - **Performance**: Start with smaller buffer sizes in JACK for lower latency
 - **Plugin Discovery**: Ariel caches plugin information for faster startup
+- **Custom Styling**: Restart Ariel after modifying `style.css` to see changes
 
 Instructions for running the application and using its features will be provided here.
 ## Contributing

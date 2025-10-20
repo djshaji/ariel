@@ -130,7 +130,7 @@ ariel_create_parameter_controls(ArielActivePlugin *plugin)
     GtkWidget *scrolled = gtk_scrolled_window_new();
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled),
                                   GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
-    gtk_widget_set_size_request(scrolled, -1, 200);
+    gtk_widget_set_size_request(scrolled, -1, 400);
     
     // Create container for all parameters
     GtkWidget *params_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);

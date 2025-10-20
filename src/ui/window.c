@@ -52,6 +52,7 @@ ariel_window_setup_ui(ArielWindow *window)
     // Active plugins list (top right)
     window->active_plugins = ariel_create_active_plugins_view(window);
     gtk_paned_set_start_child(GTK_PANED(right_paned), window->active_plugins);
+    gtk_widget_set_name(window->active_plugins, "active-plugins-view");
     
     // Mixer (bottom right)
     window->mixer_box = ariel_create_mixer(window);

@@ -482,6 +482,9 @@ ariel_create_active_plugin_widget(ArielActivePlugin *plugin, ArielWindow *window
     // Create main frame
     GtkWidget *frame = gtk_frame_new(NULL);
     gtk_widget_add_css_class(frame, "card");
+    gtk_widget_set_name (frame, "active-plugin-box");
+    gtk_widget_set_hexpand(frame, TRUE);
+    gtk_widget_set_vexpand(frame, TRUE);
     
     // Create main container
     GtkWidget *main_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);

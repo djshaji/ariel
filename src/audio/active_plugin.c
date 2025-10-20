@@ -867,7 +867,7 @@ ariel_active_plugin_set_file_parameter(ArielActivePlugin *plugin, const char *fi
     }
     
     if (plugin->atom_buffer_size < sizeof(LV2_Atom_Sequence) + 256) {
-        g_print("Atom buffer too small: %zu bytes\n", plugin->atom_buffer_size);
+        g_print("Atom buffer too small: %u bytes\n", (unsigned int)plugin->atom_buffer_size);
         return;
     }
     
@@ -915,7 +915,7 @@ ariel_active_plugin_set_file_parameter(ArielActivePlugin *plugin, const char *fi
     // Ensure we have enough space for the message
     size_t required_size = 128 + strlen(file_path) + 64; // Conservative estimate
     if (buffer_size < required_size) {
-        g_print("Insufficient buffer space: have %zu, need ~%zu\n", buffer_size, required_size);
+        g_print("Insufficient buffer space: have %u, need ~%u\n", (unsigned int)buffer_size, (unsigned int)required_size);
         return;
     }
     
@@ -977,7 +977,7 @@ ariel_active_plugin_set_file_parameter(ArielActivePlugin *plugin, const char *fi
     // Update sequence size with bounds check
     size_t new_size = sizeof(LV2_Atom_Sequence_Body) + forge.offset;
     if (new_size > plugin->atom_buffer_size) {
-        g_print("Atom message too large: %zu > %zu\n", new_size, plugin->atom_buffer_size);
+        g_print("Atom message too large: %u > %u\n", (unsigned int)new_size, (unsigned int)plugin->atom_buffer_size);
         // Reset to empty sequence
         seq->atom.size = sizeof(LV2_Atom_Sequence_Body);
         // Reactivate plugin if it was active before

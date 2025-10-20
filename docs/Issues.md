@@ -1,0 +1,4 @@
+# atom:Path controls are not handled properly
+- The LV2 Parameter file chooser controls for parameters with `rdfs:range atom:Path` are not being detected and created correctly in the UI. This plugin `urn:brummer:ratatouille` has multiple parameters of this type, but only one is created.
+- The file chooser control created does not send the selected file path to the plugin correctly. The plugin expects an LV2 Atom message of type `patch:Set` with an `atom:Path` value, but the current implementation does not format or send this message properly. In this plugin `http://github.com/mikeoliphant/neural-amp-modeler-lv2` the model file parameter is not being set correctly. The plugin does not load the selected model file.
+- Plugins without atom:Path parameters work perfectly, so the issue is specific to handling atom:Path parameters.

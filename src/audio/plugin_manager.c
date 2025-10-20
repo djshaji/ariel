@@ -765,11 +765,13 @@ ariel_plugin_manager_free(ArielPluginManager *manager)
 {
     if (!manager) return;
     
-    if (manager->plugin_store) {
+    if (manager->plugin_store && G_IS_OBJECT(manager->plugin_store)) {
         g_object_unref(manager->plugin_store);
+        manager->plugin_store = NULL;
     }
-    if (manager->active_plugin_store) {
+    if (manager->active_plugin_store && G_IS_OBJECT(manager->active_plugin_store)) {
         g_object_unref(manager->active_plugin_store);
+        manager->active_plugin_store = NULL;
     }
     if (manager->features) {
         ariel_free_lv2_features(manager->features);

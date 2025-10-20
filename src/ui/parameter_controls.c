@@ -71,7 +71,7 @@ on_file_button_clicked(GtkButton *button, ParameterControlData *data)
     
     gtk_file_dialog_set_filters(dialog, G_LIST_MODEL(filters));
     gtk_file_dialog_set_default_filter(dialog, nam_filter);
-    g_object_unref(filters);
+    if (filters) g_object_unref(filters);
     
     // Set initial directory to user's home
     const char *home_dir = g_get_home_dir();
@@ -89,7 +89,7 @@ on_file_button_clicked(GtkButton *button, ParameterControlData *data)
     gtk_file_dialog_open(dialog, parent_window, NULL, 
                         on_file_dialog_open_finish, data);
     
-    g_object_unref(dialog);
+    if (dialog) g_object_unref(dialog);
 }
 
 // Handle file dialog completion
@@ -161,12 +161,12 @@ on_file_dialog_open_finish(GObject *source, GAsyncResult *result, gpointer user_
                 GtkAlertDialog *alert = gtk_alert_dialog_new("Invalid File Type");
                 gtk_alert_dialog_set_detail(alert, "Please select a Neural Amp Model file (.nam or .nammodel)");
                 gtk_alert_dialog_show(alert, parent_window);
-                g_object_unref(alert);
+                if (alert) g_object_unref(alert);
             }
             
             g_free(file_path);
         }
-        g_object_unref(file);
+        if (file) g_object_unref(file);
     } else if (error) {
         if (error->code != G_IO_ERROR_CANCELLED) {
             g_warning("File dialog error: %s", error->message);

@@ -37,7 +37,7 @@ ariel_create_header_bar(ArielWindow *window)
     
     header_bar = gtk_header_bar_new();
     gtk_header_bar_set_title_widget(GTK_HEADER_BAR(header_bar),
-                                    gtk_label_new("Ariel LV2 Host"));
+                                    gtk_label_new(APP));
     
     // Audio engine toggle button
     window->audio_toggle = gtk_toggle_button_new_with_label("Audio: OFF");

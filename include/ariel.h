@@ -6,6 +6,7 @@
 #include <jack/jack.h>
 
 #define ARIEL_APP_ID "com.github.djshaji.ariel"
+#define APP "Ariel"
 
 // Forward declarations
 typedef struct _ArielApp ArielApp;

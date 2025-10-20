@@ -7,14 +7,15 @@ ariel_window_new(ArielApp *app)
     
     window = g_object_new(GTK_TYPE_APPLICATION_WINDOW,
                           "application", app,
-                          "title", "Ariel LV2 Host",
+                          "title", APP,
                           "default-width", 1200,
                           "default-height", 800,
                           NULL);
                           
     window->app = app;
     ariel_window_setup_ui(window);
-    
+
+    gtk_window_maximize(GTK_WINDOW(window));
     return window;
 }
 
@@ -33,7 +34,7 @@ ariel_window_setup_ui(ArielWindow *window)
     
     // Create transport controls
     window->transport_box = ariel_create_transport(window);
-    gtk_box_append(GTK_BOX(vbox), window->transport_box);
+    // gtk_box_append(GTK_BOX(vbox), window->transport_box);
     
     // Create main paned view
     window->main_paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
@@ -46,18 +47,18 @@ ariel_window_setup_ui(ArielWindow *window)
     
     // Create right pane with active plugins and mixer
     GtkWidget *right_paned = gtk_paned_new(GTK_ORIENTATION_VERTICAL);
-    gtk_paned_set_end_child(GTK_PANED(window->main_paned), right_paned);
-    
+    gtk_paned_set_end_child(GTK_PANED(window->main_paned), right_paned);   
+
     // Active plugins list (top right)
     window->active_plugins = ariel_create_active_plugins_view(window);
     gtk_paned_set_start_child(GTK_PANED(right_paned), window->active_plugins);
     
     // Mixer (bottom right)
     window->mixer_box = ariel_create_mixer(window);
-    gtk_paned_set_end_child(GTK_PANED(right_paned), window->mixer_box);
+    // gtk_paned_set_end_child(GTK_PANED(right_paned), window->mixer_box);
     
     // Set paned positions
-    gtk_paned_set_position(GTK_PANED(window->main_paned), 300);
+    gtk_paned_set_position(GTK_PANED(window->main_paned), 400);
     gtk_paned_set_position(GTK_PANED(right_paned), 400);
     
     // Auto-start the audio engine

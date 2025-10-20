@@ -492,6 +492,8 @@ ariel_create_active_plugin_widget(ArielActivePlugin *plugin, ArielWindow *window
     gtk_widget_set_margin_end(main_box, 12);
     gtk_widget_set_margin_top(main_box, 12);
     gtk_widget_set_margin_bottom(main_box, 12);
+    gtk_widget_set_hexpand(main_box, TRUE);
+    gtk_widget_set_vexpand(main_box, TRUE);
     
     // Create header box with plugin name and controls
     GtkWidget *header_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);

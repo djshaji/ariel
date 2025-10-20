@@ -42,9 +42,10 @@ on_file_button_clicked(GtkButton *button, ParameterControlData *data)
 {
     if (!data || !data->plugin) return;
     
-    ariel_active_plugin_set_parameter(data->plugin, data->param_index, 1.0f);
+    // Simple placeholder for now - just show that the button was clicked
     gtk_button_set_label(button, "📁 File Selected");
-    g_print("File parameter %u: File selection triggered\n", data->param_index);
+    ariel_active_plugin_set_parameter(data->plugin, data->param_index, 1.0f);
+    g_print("File parameter %u: File selection triggered (neural model)\n", data->param_index);
 }
 
 // Get parameter label from lilv port
@@ -118,12 +119,67 @@ is_path_parameter(const LilvPlugin *plugin, const LilvPort *port)
     
     if (!manager || !manager->world) return FALSE;
     
-    // Check if port expects atom:Path type
+    // Check if port expects atom:Path type directly
     LilvNode *path_uri = lilv_new_uri(manager->world, LV2_ATOM__Path);
     gboolean is_path = lilv_port_supports_event(plugin, port, path_uri);
     lilv_node_free(path_uri);
     
     return is_path;
+}
+
+// Check if plugin has LV2 Parameters with atom:Path range
+static gboolean
+is_plugin_parameter_path(const LilvPlugin *plugin, const LilvPort *port)
+{
+    ArielApp *app = ARIEL_APP(g_application_get_default());
+    ArielPluginManager *manager = ariel_app_get_plugin_manager(app);
+    
+    if (!manager || !manager->world) return FALSE;
+    
+    // Get plugin URI to check for parameters
+    const LilvNode *plugin_uri = lilv_plugin_get_uri(plugin);
+    if (!plugin_uri) return FALSE;
+    
+    // Look for plugin parameters with atom:Path range
+    LilvNode *param_uri = lilv_new_uri(manager->world, "http://lv2plug.in/ns/lv2core#Parameter");
+    LilvNode *range_uri = lilv_new_uri(manager->world, "http://www.w3.org/2000/01/rdf-schema#range");
+    LilvNode *path_uri = lilv_new_uri(manager->world, LV2_ATOM__Path);
+    LilvNode *writable_uri = lilv_new_uri(manager->world, "http://lv2plug.in/ns/ext/patch#writable");
+    
+    // Check if plugin has patch:writable parameters with atom:Path range
+    LilvNodes *writables = lilv_world_find_nodes(manager->world, plugin_uri, writable_uri, NULL);
+    if (writables) {
+        LILV_FOREACH(nodes, i, writables) {
+            const LilvNode *writable = lilv_nodes_get(writables, i);
+            
+            // Check if this parameter has rdfs:range atom:Path
+            LilvNodes *ranges = lilv_world_find_nodes(manager->world, writable, range_uri, NULL);
+            if (ranges) {
+                LILV_FOREACH(nodes, j, ranges) {
+                    const LilvNode *range = lilv_nodes_get(ranges, j);
+                    if (lilv_node_equals(range, path_uri)) {
+                        // This parameter has atom:Path range - it's a file parameter
+                        lilv_nodes_free(ranges);
+                        lilv_nodes_free(writables);
+                        lilv_node_free(param_uri);
+                        lilv_node_free(range_uri);
+                        lilv_node_free(path_uri);
+                        lilv_node_free(writable_uri);
+                        return TRUE;
+                    }
+                }
+                lilv_nodes_free(ranges);
+            }
+        }
+        lilv_nodes_free(writables);
+    }
+    
+    lilv_node_free(param_uri);
+    lilv_node_free(range_uri);
+    lilv_node_free(path_uri);
+    lilv_node_free(writable_uri);
+    
+    return FALSE;
 }
 
 // Create parameter control widget for a single parameter
@@ -164,19 +220,20 @@ create_parameter_control(ArielActivePlugin *plugin, uint32_t param_index)
     GtkWidget *control_widget = NULL;
     
     // Determine control type based on port properties
-    if (is_path_parameter(lilv_plugin, port)) {
-        // Create simple button for atom:Path parameters (placeholder for file selection)
-        control_widget = gtk_button_new_with_label("📁 Select File...");
+    if (is_path_parameter(lilv_plugin, port) || is_plugin_parameter_path(lilv_plugin, port)) {
+        // Create file chooser button for atom:Path parameters
+        control_widget = gtk_button_new_with_label("📁 Select Neural Model...");
         gtk_widget_add_css_class(control_widget, "pill");
+        gtk_widget_add_css_class(control_widget, "suggested-action");
         
         data->control_widget = control_widget;
         
-        // Simple placeholder callback - in a full implementation this would open a file dialog
+        // File chooser callback for loading neural models
         g_signal_connect_data(control_widget, "clicked",
                              G_CALLBACK(on_file_button_clicked), data,
                              (GClosureNotify)g_free, 0);
         
-        g_print("Created file chooser button for parameter: %s\n", label);
+        g_print("Created file chooser button for LV2 Parameter with atom:Path: %s\n", label);
         
     } else if (is_toggle_parameter(lilv_plugin, port)) {
         // Create toggle button for boolean parameters

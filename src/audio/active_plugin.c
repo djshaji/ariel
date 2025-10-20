@@ -33,6 +33,14 @@ struct _ArielActivePlugin {
     uint32_t *control_input_port_indices;
     uint32_t *control_output_port_indices;
     
+    // Atom port support
+    guint n_atom_inputs;
+    guint n_atom_outputs;
+    uint32_t *atom_input_port_indices;
+    uint32_t *atom_output_port_indices;
+    void **atom_input_buffers;
+    void **atom_output_buffers;
+    
     // Audio engine reference
     ArielAudioEngine *engine;
 };
@@ -63,6 +71,21 @@ ariel_active_plugin_finalize(GObject *object)
     g_free(plugin->audio_output_port_indices);
     g_free(plugin->control_input_port_indices);
     g_free(plugin->control_output_port_indices);
+    // Free Atom port buffers
+    if (plugin->atom_input_buffers) {
+        for (guint i = 0; i < plugin->n_atom_inputs; i++) {
+            g_free(plugin->atom_input_buffers[i]);
+        }
+        g_free(plugin->atom_input_buffers);
+    }
+    if (plugin->atom_output_buffers) {
+        for (guint i = 0; i < plugin->n_atom_outputs; i++) {
+            g_free(plugin->atom_output_buffers[i]);
+        }
+        g_free(plugin->atom_output_buffers);
+    }
+    g_free(plugin->atom_input_port_indices);
+    g_free(plugin->atom_output_port_indices);
 
     // Free strings
     g_free(plugin->name);
@@ -94,10 +117,16 @@ ariel_active_plugin_init(ArielActivePlugin *plugin)
     plugin->n_audio_outputs = 0;
     plugin->n_control_inputs = 0;
     plugin->n_control_outputs = 0;
+    plugin->n_atom_inputs = 0;
+    plugin->n_atom_outputs = 0;
     plugin->audio_input_buffers = NULL;
     plugin->audio_output_buffers = NULL;
     plugin->control_input_values = NULL;
     plugin->control_output_values = NULL;
+    plugin->atom_input_port_indices = NULL;
+    plugin->atom_output_port_indices = NULL;
+    plugin->atom_input_buffers = NULL;
+    plugin->atom_output_buffers = NULL;
     plugin->engine = NULL;
 }
 
@@ -136,6 +165,7 @@ ariel_active_plugin_new(ArielPluginInfo *plugin_info, ArielAudioEngine *engine)
     // Create URI nodes for port types
     LilvNode *audio_port_uri = lilv_new_uri(world, LILV_URI_AUDIO_PORT);
     LilvNode *control_port_uri = lilv_new_uri(world, LILV_URI_CONTROL_PORT);
+    LilvNode *atom_port_uri = lilv_new_uri(world, LV2_ATOM__AtomPort);
     LilvNode *input_port_uri = lilv_new_uri(world, LILV_URI_INPUT_PORT);
     LilvNode *output_port_uri = lilv_new_uri(world, LILV_URI_OUTPUT_PORT);
     
@@ -156,32 +186,50 @@ ariel_active_plugin_new(ArielPluginInfo *plugin_info, ArielAudioEngine *engine)
             } else if (lilv_port_is_a(plugin->lilv_plugin, port, output_port_uri)) {
                 plugin->n_control_outputs++;
             }
+        } else if (lilv_port_is_a(plugin->lilv_plugin, port, atom_port_uri)) {
+            if (lilv_port_is_a(plugin->lilv_plugin, port, input_port_uri)) {
+                plugin->n_atom_inputs++;
+            } else if (lilv_port_is_a(plugin->lilv_plugin, port, output_port_uri)) {
+                plugin->n_atom_outputs++;
+            }
         }
     }
     
     // Free URI nodes
     lilv_node_free(audio_port_uri);
     lilv_node_free(control_port_uri);
+    lilv_node_free(atom_port_uri);
     lilv_node_free(input_port_uri);
     lilv_node_free(output_port_uri);
     
-    g_print("Plugin %s: %u audio inputs, %u audio outputs, %u control inputs, %u control outputs\n", 
+    g_print("Plugin %s: %u audio inputs, %u audio outputs, %u control inputs, %u control outputs, %u atom inputs, %u atom outputs\n", 
             plugin->name, plugin->n_audio_inputs, plugin->n_audio_outputs,
-            plugin->n_control_inputs, plugin->n_control_outputs);
+            plugin->n_control_inputs, plugin->n_control_outputs,
+            plugin->n_atom_inputs, plugin->n_atom_outputs);
     
-    // Allocate port index arrays
-    plugin->audio_input_port_indices = g_malloc0(plugin->n_audio_inputs * sizeof(uint32_t));
-    plugin->audio_output_port_indices = g_malloc0(plugin->n_audio_outputs * sizeof(uint32_t));
-    plugin->control_input_port_indices = g_malloc0(plugin->n_control_inputs * sizeof(uint32_t));
-    plugin->control_output_port_indices = g_malloc0(plugin->n_control_outputs * sizeof(uint32_t));
+    // Allocate port index arrays (with safety checks for zero counts)
+    plugin->audio_input_port_indices = plugin->n_audio_inputs > 0 ? 
+        g_malloc0(plugin->n_audio_inputs * sizeof(uint32_t)) : NULL;
+    plugin->audio_output_port_indices = plugin->n_audio_outputs > 0 ? 
+        g_malloc0(plugin->n_audio_outputs * sizeof(uint32_t)) : NULL;
+    plugin->control_input_port_indices = plugin->n_control_inputs > 0 ? 
+        g_malloc0(plugin->n_control_inputs * sizeof(uint32_t)) : NULL;
+    plugin->control_output_port_indices = plugin->n_control_outputs > 0 ? 
+        g_malloc0(plugin->n_control_outputs * sizeof(uint32_t)) : NULL;
+    plugin->atom_input_port_indices = plugin->n_atom_inputs > 0 ? 
+        g_malloc0(plugin->n_atom_inputs * sizeof(uint32_t)) : NULL;
+    plugin->atom_output_port_indices = plugin->n_atom_outputs > 0 ? 
+        g_malloc0(plugin->n_atom_outputs * sizeof(uint32_t)) : NULL;
     
     // Populate port index arrays
     uint32_t audio_in_idx = 0, audio_out_idx = 0;
     uint32_t control_in_idx = 0, control_out_idx = 0;
+    uint32_t atom_in_idx = 0, atom_out_idx = 0;
     
     // Re-create URI nodes for second pass
     audio_port_uri = lilv_new_uri(world, LILV_URI_AUDIO_PORT);
     control_port_uri = lilv_new_uri(world, LILV_URI_CONTROL_PORT);
+    atom_port_uri = lilv_new_uri(world, LV2_ATOM__AtomPort);
     input_port_uri = lilv_new_uri(world, LILV_URI_INPUT_PORT);
     output_port_uri = lilv_new_uri(world, LILV_URI_OUTPUT_PORT);
     
@@ -208,27 +256,44 @@ ariel_active_plugin_new(ArielPluginInfo *plugin_info, ArielAudioEngine *engine)
                     plugin->control_output_port_indices[control_out_idx++] = i;
                 }
             }
+        } else if (lilv_port_is_a(plugin->lilv_plugin, port, atom_port_uri)) {
+            if (lilv_port_is_a(plugin->lilv_plugin, port, input_port_uri)) {
+                if (atom_in_idx < plugin->n_atom_inputs) {
+                    plugin->atom_input_port_indices[atom_in_idx++] = i;
+                }
+            } else if (lilv_port_is_a(plugin->lilv_plugin, port, output_port_uri)) {
+                if (atom_out_idx < plugin->n_atom_outputs) {
+                    plugin->atom_output_port_indices[atom_out_idx++] = i;
+                }
+            }
         }
     }
 
     // Free URI nodes again
     lilv_node_free(audio_port_uri);
     lilv_node_free(control_port_uri);
+    lilv_node_free(atom_port_uri);
     lilv_node_free(input_port_uri);
     lilv_node_free(output_port_uri);
 
-    // Initialize control port values
-    plugin->control_input_values = g_malloc0(plugin->n_control_inputs * sizeof(float));
-    plugin->control_output_values = g_malloc0(plugin->n_control_outputs * sizeof(float));
+    // Initialize control port values (with safety checks for zero counts)
+    plugin->control_input_values = plugin->n_control_inputs > 0 ? 
+        g_malloc0(plugin->n_control_inputs * sizeof(float)) : NULL;
+    plugin->control_output_values = plugin->n_control_outputs > 0 ? 
+        g_malloc0(plugin->n_control_outputs * sizeof(float)) : NULL;
     
     // Initialize control input values with defaults
     if (plugin->n_control_inputs > 0) {
+        // Create URI nodes once for this loop
+        LilvNode *control_uri = lilv_new_uri(world, LILV_URI_CONTROL_PORT);
+        LilvNode *input_uri = lilv_new_uri(world, LILV_URI_INPUT_PORT);
+        
         uint32_t control_idx = 0;
         for (uint32_t i = 0; i < num_ports && control_idx < plugin->n_control_inputs; i++) {
             const LilvPort *port = lilv_plugin_get_port_by_index(plugin->lilv_plugin, i);
             
-            if (lilv_port_is_a(plugin->lilv_plugin, port, lilv_new_uri(world, LILV_URI_CONTROL_PORT)) &&
-                lilv_port_is_a(plugin->lilv_plugin, port, lilv_new_uri(world, LILV_URI_INPUT_PORT))) {
+            if (lilv_port_is_a(plugin->lilv_plugin, port, control_uri) &&
+                lilv_port_is_a(plugin->lilv_plugin, port, input_uri)) {
                 
                 // Get default value
                 LilvNode *default_node = NULL;
@@ -244,17 +309,33 @@ ariel_active_plugin_new(ArielPluginInfo *plugin_info, ArielAudioEngine *engine)
                 control_idx++;
             }
         }
+        
+        // Free URI nodes
+        lilv_node_free(control_uri);
+        lilv_node_free(input_uri);
     }
 
     // Get LV2 features from plugin manager
     ArielPluginManager *plugin_manager = ariel_app_get_plugin_manager(
         ARIEL_APP(g_application_get_default()));
     
+    if (!plugin_manager) {
+        g_warning("Failed to get plugin manager for %s", plugin->name);
+        g_object_unref(plugin);
+        return NULL;
+    }
+    
     // Create or update features with engine reference
     if (plugin_manager->features) {
         ariel_free_lv2_features(plugin_manager->features);
     }
     plugin_manager->features = ariel_create_lv2_features(plugin_manager, engine);
+    
+    if (!plugin_manager->features) {
+        g_warning("Failed to create LV2 features for %s", plugin->name);
+        g_object_unref(plugin);
+        return NULL;
+    }
     
     // Create plugin instance with LV2 features
     plugin->instance = lilv_plugin_instantiate(plugin->lilv_plugin, engine->sample_rate, 
@@ -265,17 +346,44 @@ ariel_active_plugin_new(ArielPluginInfo *plugin_info, ArielAudioEngine *engine)
         return NULL;
     }
 
-    // Connect control ports to their value arrays
-    for (guint i = 0; i < plugin->n_control_inputs; i++) {
-        lilv_instance_connect_port(plugin->instance,
-                                 plugin->control_input_port_indices[i],
-                                 &plugin->control_input_values[i]);
+    // Connect control ports to their value arrays (with safety checks)
+    if (plugin->n_control_inputs > 0 && plugin->control_input_port_indices && plugin->control_input_values) {
+        for (guint i = 0; i < plugin->n_control_inputs; i++) {
+            lilv_instance_connect_port(plugin->instance,
+                                     plugin->control_input_port_indices[i],
+                                     &plugin->control_input_values[i]);
+        }
     }
 
-    for (guint i = 0; i < plugin->n_control_outputs; i++) {
-        lilv_instance_connect_port(plugin->instance,
-                                 plugin->control_output_port_indices[i],
-                                 &plugin->control_output_values[i]);
+    if (plugin->n_control_outputs > 0 && plugin->control_output_port_indices && plugin->control_output_values) {
+        for (guint i = 0; i < plugin->n_control_outputs; i++) {
+            lilv_instance_connect_port(plugin->instance,
+                                     plugin->control_output_port_indices[i],
+                                     &plugin->control_output_values[i]);
+        }
+    }
+
+    // Set up Atom port buffers (basic setup to prevent crashes)
+    if (plugin->n_atom_inputs > 0 && plugin->atom_input_port_indices) {
+        plugin->atom_input_buffers = g_malloc0(plugin->n_atom_inputs * sizeof(void*));
+        for (guint i = 0; i < plugin->n_atom_inputs; i++) {
+            // Allocate a basic Atom sequence buffer (1024 bytes should be enough for most cases)
+            plugin->atom_input_buffers[i] = g_malloc0(1024);
+            lilv_instance_connect_port(plugin->instance,
+                                     plugin->atom_input_port_indices[i],
+                                     plugin->atom_input_buffers[i]);
+        }
+    }
+
+    if (plugin->n_atom_outputs > 0 && plugin->atom_output_port_indices) {
+        plugin->atom_output_buffers = g_malloc0(plugin->n_atom_outputs * sizeof(void*));
+        for (guint i = 0; i < plugin->n_atom_outputs; i++) {
+            // Allocate a basic Atom sequence buffer (1024 bytes should be enough for most cases)
+            plugin->atom_output_buffers[i] = g_malloc0(1024);
+            lilv_instance_connect_port(plugin->instance,
+                                     plugin->atom_output_port_indices[i],
+                                     plugin->atom_output_buffers[i]);
+        }
     }
 
     // Audio ports will be connected dynamically during processing
@@ -379,18 +487,29 @@ ariel_active_plugin_get_control_port_index(ArielActivePlugin *plugin, uint32_t p
     const uint32_t num_ports = lilv_plugin_get_num_ports(plugin->lilv_plugin);
     uint32_t control_idx = 0;
     
+    // Create URI nodes once
+    LilvNode *control_uri = lilv_new_uri(world, LILV_URI_CONTROL_PORT);
+    LilvNode *input_uri = lilv_new_uri(world, LILV_URI_INPUT_PORT);
+    
     for (uint32_t i = 0; i < num_ports; i++) {
         const LilvPort *port = lilv_plugin_get_port_by_index(plugin->lilv_plugin, i);
         
-        if (lilv_port_is_a(plugin->lilv_plugin, port, lilv_new_uri(world, LILV_URI_CONTROL_PORT)) &&
-            lilv_port_is_a(plugin->lilv_plugin, port, lilv_new_uri(world, LILV_URI_INPUT_PORT))) {
+        if (lilv_port_is_a(plugin->lilv_plugin, port, control_uri) &&
+            lilv_port_is_a(plugin->lilv_plugin, port, input_uri)) {
             
             if (control_idx == param_index) {
+                // Free URI nodes before returning
+                lilv_node_free(control_uri);
+                lilv_node_free(input_uri);
                 return i;
             }
             control_idx++;
         }
     }
+    
+    // Free URI nodes before fallback return
+    lilv_node_free(control_uri);
+    lilv_node_free(input_uri);
     
     return 0; // Fallback
 }

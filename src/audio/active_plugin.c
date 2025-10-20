@@ -1,5 +1,9 @@
 #include "ariel.h"
 #include <string.h>
+#include <lv2/atom/atom.h>
+#include <lv2/atom/forge.h>
+#include <lv2/atom/util.h>
+#include <lv2/patch/patch.h>
 
 // ArielActivePlugin structure
 struct _ArielActivePlugin {
@@ -40,6 +44,17 @@ struct _ArielActivePlugin {
     uint32_t *atom_output_port_indices;
     void **atom_input_buffers;
     void **atom_output_buffers;
+    uint32_t atom_buffer_size;
+    
+    // URIDs for Atom messaging
+    LV2_URID_Map *urid_map;
+    LV2_URID atom_Path;
+    LV2_URID atom_String;
+    LV2_URID atom_Sequence;
+    LV2_URID patch_Set;
+    LV2_URID patch_property;
+    LV2_URID patch_value;
+    LV2_URID plugin_model_uri;
     
     // Audio engine reference
     ArielAudioEngine *engine;
@@ -386,6 +401,48 @@ ariel_active_plugin_new(ArielPluginInfo *plugin_info, ArielAudioEngine *engine)
         }
     }
 
+    // Initialize URIDs for Atom messaging if URID map is available
+    if (manager && manager->urid_map) {
+        plugin->urid_map = (LV2_URID_Map*)manager->urid_map;
+        
+        plugin->atom_Path = ariel_urid_map(manager->urid_map, LV2_ATOM__Path);
+        plugin->atom_String = ariel_urid_map(manager->urid_map, LV2_ATOM__String);
+        plugin->atom_Sequence = ariel_urid_map(manager->urid_map, LV2_ATOM__Sequence);
+        plugin->patch_Set = ariel_urid_map(manager->urid_map, LV2_PATCH__Set);
+        plugin->patch_property = ariel_urid_map(manager->urid_map, LV2_PATCH__property);
+        plugin->patch_value = ariel_urid_map(manager->urid_map, LV2_PATCH__value);
+        
+        // Neural Amp Modeler specific model parameter URI
+        plugin->plugin_model_uri = ariel_urid_map(manager->urid_map, 
+            "http://github.com/mikeoliphant/neural-amp-modeler-lv2#model");
+    }
+    
+    // Set up Atom buffers (4KB should be sufficient for most messages)
+    plugin->atom_buffer_size = 4096;
+    if (plugin->n_atom_inputs > 0) {
+        for (guint i = 0; i < plugin->n_atom_inputs; i++) {
+            plugin->atom_input_buffers[i] = g_malloc0(plugin->atom_buffer_size);
+            // Initialize as empty sequence
+            LV2_Atom_Sequence *seq = (LV2_Atom_Sequence*)plugin->atom_input_buffers[i];
+            seq->atom.type = plugin->atom_Sequence;
+            seq->atom.size = sizeof(LV2_Atom_Sequence_Body);
+            seq->body.unit = 0;
+            seq->body.pad = 0;
+        }
+    }
+    
+    if (plugin->n_atom_outputs > 0) {
+        for (guint i = 0; i < plugin->n_atom_outputs; i++) {
+            plugin->atom_output_buffers[i] = g_malloc0(plugin->atom_buffer_size);
+            // Initialize as empty sequence
+            LV2_Atom_Sequence *seq = (LV2_Atom_Sequence*)plugin->atom_output_buffers[i];
+            seq->atom.type = plugin->atom_Sequence;
+            seq->atom.size = sizeof(LV2_Atom_Sequence_Body);
+            seq->body.unit = 0;
+            seq->body.pad = 0;
+        }
+    }
+
     // Audio ports will be connected dynamically during processing
 
     g_print("Created active plugin: %s\n", plugin->name);
@@ -549,6 +606,24 @@ ariel_active_plugin_connect_audio_ports(ArielActivePlugin *plugin,
             lilv_instance_connect_port(plugin->instance, 
                                      plugin->audio_output_port_indices[i], 
                                      output_buffers[buffer_index]);
+        }
+    }
+    
+    // Connect Atom input ports
+    if (plugin->atom_input_port_indices && plugin->atom_input_buffers) {
+        for (guint i = 0; i < plugin->n_atom_inputs; i++) {
+            lilv_instance_connect_port(plugin->instance,
+                                     plugin->atom_input_port_indices[i],
+                                     plugin->atom_input_buffers[i]);
+        }
+    }
+    
+    // Connect Atom output ports
+    if (plugin->atom_output_port_indices && plugin->atom_output_buffers) {
+        for (guint i = 0; i < plugin->n_atom_outputs; i++) {
+            lilv_instance_connect_port(plugin->instance,
+                                     plugin->atom_output_port_indices[i],
+                                     plugin->atom_output_buffers[i]);
         }
     }
 }
@@ -758,4 +833,70 @@ ariel_active_plugin_free_preset_list(char **preset_list)
         g_free(preset_list[i]);
     }
     g_free(preset_list);
+}
+
+// Send file path to plugin via Atom message
+void
+ariel_active_plugin_set_file_parameter(ArielActivePlugin *plugin, const char *file_path)
+{
+    if (!plugin || !file_path || plugin->n_atom_inputs == 0) {
+        g_print("Cannot send file parameter: plugin=%p, file_path=%s, atom_inputs=%u\n", 
+                (void*)plugin, file_path, plugin ? plugin->n_atom_inputs : 0);
+        return;
+    }
+    
+    if (!plugin->urid_map) {
+        g_print("No URID map available for Atom messaging\n");
+        return;
+    }
+    
+    // Get the first atom input port (control port)
+    LV2_Atom_Sequence *seq = (LV2_Atom_Sequence*)plugin->atom_input_buffers[0];
+    
+    // Reset sequence
+    seq->atom.type = plugin->atom_Sequence;
+    seq->atom.size = sizeof(LV2_Atom_Sequence_Body);
+    seq->body.unit = 0;
+    seq->body.pad = 0;
+    
+    // Create patch:Set message using LV2 Atom Forge
+    LV2_Atom_Forge forge;
+    lv2_atom_forge_init(&forge, (LV2_URID_Map*)plugin->urid_map);
+    
+    uint8_t *buffer = (uint8_t*)seq + sizeof(LV2_Atom_Sequence);
+    size_t buffer_size = plugin->atom_buffer_size - sizeof(LV2_Atom_Sequence);
+    lv2_atom_forge_set_buffer(&forge, buffer, buffer_size);
+    
+    LV2_Atom_Forge_Frame frame;
+    lv2_atom_forge_sequence_head(&forge, &frame, 0);
+    
+    // Forge patch:Set message
+    LV2_Atom_Forge_Frame set_frame;
+    lv2_atom_forge_frame_time(&forge, 0);
+    lv2_atom_forge_object(&forge, &set_frame, 0, plugin->patch_Set);
+    lv2_atom_forge_key(&forge, plugin->patch_property);
+    lv2_atom_forge_urid(&forge, plugin->plugin_model_uri);
+    lv2_atom_forge_key(&forge, plugin->patch_value);
+    lv2_atom_forge_path(&forge, file_path, strlen(file_path));
+    lv2_atom_forge_pop(&forge, &set_frame);
+    
+    lv2_atom_forge_pop(&forge, &frame);
+    
+    // Update sequence size
+    seq->atom.size = sizeof(LV2_Atom_Sequence_Body) + forge.offset;
+    
+    g_print("Sent file path to Neural Amp Modeler: %s (sequence size: %u)\n", 
+            file_path, seq->atom.size);
+}
+
+// Check if plugin supports file parameters via Atom messaging
+gboolean
+ariel_active_plugin_supports_file_parameters(ArielActivePlugin *plugin)
+{
+    if (!plugin) return FALSE;
+    
+    // Check if plugin has atom input ports and required URIDs
+    return (plugin->n_atom_inputs > 0 && 
+            plugin->urid_map != NULL &&
+            plugin->plugin_model_uri != 0);
 }

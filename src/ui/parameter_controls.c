@@ -36,17 +36,53 @@ on_toggle_changed(GtkToggleButton *button, ParameterControlData *data)
     g_print("Toggle parameter %u changed to %s\n", data->param_index, active ? "ON" : "OFF");
 }
 
+
+
 // Callback for file chooser button
 static void
 on_file_button_clicked(GtkButton *button, ParameterControlData *data)
 {
     if (!data || !data->plugin) return;
     
-    // Simple placeholder for now - just show that the button was clicked
-    gtk_button_set_label(button, "📁 File Selected");
-    ariel_active_plugin_set_parameter(data->plugin, data->param_index, 1.0f);
-    g_print("File parameter %u: File selection triggered (neural model)\n", data->param_index);
+    // Simple placeholder - create a modern GTK4 file dialog
+    GtkFileDialog *dialog = gtk_file_dialog_new();
+    gtk_file_dialog_set_title(dialog, "Select Neural Amp Model");
+    
+    // Set up file filter for neural amp models
+    GListStore *filters = g_list_store_new(GTK_TYPE_FILE_FILTER);
+    
+    GtkFileFilter *filter = gtk_file_filter_new();
+    gtk_file_filter_set_name(filter, "Neural Amp Models (*.nam, *.nammodel)");
+    gtk_file_filter_add_pattern(filter, "*.nam");
+    gtk_file_filter_add_pattern(filter, "*.nammodel");
+    g_list_store_append(filters, filter);
+    g_object_unref(filter);
+    
+    GtkFileFilter *all_filter = gtk_file_filter_new();
+    gtk_file_filter_set_name(all_filter, "All Files");
+    gtk_file_filter_add_pattern(all_filter, "*");
+    g_list_store_append(filters, all_filter);
+    g_object_unref(all_filter);
+    
+    gtk_file_dialog_set_filters(dialog, G_LIST_MODEL(filters));
+    g_object_unref(filters);
+    
+    // Set initial directory to user's home
+    const char *home_dir = g_get_home_dir();
+    if (home_dir) {
+        GFile *home_file = g_file_new_for_path(home_dir);
+        gtk_file_dialog_set_initial_folder(dialog, home_file);
+        g_object_unref(home_file);
+    }
+    
+    // For now, just update the button with a placeholder
+    gtk_button_set_label(button, "📁 File Dialog (TODO)");
+    g_print("Neural Amp Model file chooser clicked - modern GTK4 file dialog to be implemented\n");
+    
+    g_object_unref(dialog);
 }
+
+
 
 // Get parameter label from lilv port
 static char *
@@ -128,14 +164,43 @@ is_path_parameter(const LilvPlugin *plugin, const LilvPort *port)
 }
 
 // Check if plugin has LV2 Parameters with atom:Path range
-// This should only return true for plugins that actually use atom-based parameter control
-// Not for regular control ports
 static gboolean
 is_plugin_parameter_path(const LilvPlugin *plugin, const LilvPort *port)
 {
-    // For now, disable this detection to prevent buffer overflow
-    // The Neural Amp Modeler uses Atom ports for parameter control, not regular control ports
-    // Regular control ports (Input Lvl, Output Lvl) should use normal sliders
+    // This function should only check for plugins that support file parameters
+    // via Atom messaging, not regular control ports
+    
+    ArielApp *app = ARIEL_APP(g_application_get_default());
+    ArielPluginManager *manager = ariel_app_get_plugin_manager(app);
+    
+    if (!manager || !manager->world) return FALSE;
+    
+    // Get plugin URI to check for parameters
+    const LilvNode *plugin_uri = lilv_plugin_get_uri(plugin);
+    if (!plugin_uri) return FALSE;
+    
+    // Special case for Neural Amp Modeler - check if this is the plugin and it has Atom ports
+    const char *plugin_uri_str = lilv_node_as_string(plugin_uri);
+    if (g_str_has_prefix(plugin_uri_str, "http://github.com/mikeoliphant/neural-amp-modeler-lv2")) {
+        // Check if plugin has Atom input ports (control ports)
+        LilvNode *atom_port_class = lilv_new_uri(manager->world, LV2_ATOM__AtomPort);
+        LilvNode *input_port_class = lilv_new_uri(manager->world, LV2_CORE__InputPort);
+        
+        // Look for Atom input ports
+        for (uint32_t i = 0; i < lilv_plugin_get_num_ports(plugin); i++) {
+            const LilvPort *p = lilv_plugin_get_port_by_index(plugin, i);
+            if (lilv_port_is_a(plugin, p, atom_port_class) &&
+                lilv_port_is_a(plugin, p, input_port_class)) {
+                lilv_node_free(atom_port_class);
+                lilv_node_free(input_port_class);
+                return TRUE; // Plugin supports file parameters via Atom messaging
+            }
+        }
+        
+        lilv_node_free(atom_port_class);
+        lilv_node_free(input_port_class);
+    }
+    
     return FALSE;
 }
 

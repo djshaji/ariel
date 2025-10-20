@@ -11,6 +11,8 @@
 #include <lv2/options/options.h>
 #include <lv2/state/state.h>
 #include <lv2/atom/atom.h>
+#include <lv2/atom/forge.h>
+#include <lv2/patch/patch.h>
 #include <lv2/worker/worker.h>
 
 #define ARIEL_APP_ID "com.github.djshaji.ariel"
@@ -171,6 +173,10 @@ guint ariel_active_plugin_get_n_audio_inputs(ArielActivePlugin *plugin);
 guint ariel_active_plugin_get_n_audio_outputs(ArielActivePlugin *plugin);
 void ariel_active_plugin_set_bypass(ArielActivePlugin *plugin, gboolean bypass);
 gboolean ariel_active_plugin_get_bypass(ArielActivePlugin *plugin);
+
+// Atom Messaging for File Parameters
+void ariel_active_plugin_set_file_parameter(ArielActivePlugin *plugin, const char *file_path);
+gboolean ariel_active_plugin_supports_file_parameters(ArielActivePlugin *plugin);
 
 // Preset Management
 gboolean ariel_active_plugin_save_preset(ArielActivePlugin *plugin, const char *preset_name, const char *preset_dir);

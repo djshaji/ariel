@@ -114,14 +114,81 @@ ariel_urid_unmap(LV2_URID_Unmap_Handle handle, LV2_URID urid)
     return (const char *)g_hash_table_lookup(map->id_to_uri, GUINT_TO_POINTER(urid));
 }
 
+// LV2 Atom Path support functions
+LV2_URID
+ariel_get_atom_path_urid(ArielPluginManager *manager)
+{
+    if (!manager || !manager->urid_map) return 0;
+    return ariel_urid_map(manager->urid_map, LV2_ATOM__Path);
+}
+
+// Map absolute path to plugin-accessible path
+char *
+ariel_map_absolute_path(LV2_State_Handle handle, const char *absolute_path)
+{
+    ArielPluginManager *manager = (ArielPluginManager *)handle;
+    if (!manager || !absolute_path) return NULL;
+    
+    // Create plugin-accessible path within state directory
+    ArielConfig *config = manager->config;
+    const char *config_dir = ariel_config_get_dir(config);
+    char *state_dir = g_build_filename(config_dir, "plugin_state", NULL);
+    
+    // Generate safe filename from absolute path
+    char *basename = g_path_get_basename(absolute_path);
+    char *safe_path = g_build_filename(state_dir, basename, NULL);
+    
+    // Copy file to state directory if it doesn't exist
+    if (!g_file_test(safe_path, G_FILE_TEST_EXISTS) && g_file_test(absolute_path, G_FILE_TEST_EXISTS)) {
+        GError *error = NULL;
+        GFile *source = g_file_new_for_path(absolute_path);
+        GFile *dest = g_file_new_for_path(safe_path);
+        
+        if (!g_file_copy(source, dest, G_FILE_COPY_NONE, NULL, NULL, NULL, &error)) {
+            g_warning("Failed to copy file %s to %s: %s", absolute_path, safe_path, error->message);
+            g_error_free(error);
+            g_free(safe_path);
+            safe_path = NULL;
+        } else {
+            g_print("Mapped absolute path: %s -> %s\n", absolute_path, safe_path);
+        }
+        
+        g_object_unref(source);
+        g_object_unref(dest);
+    }
+    
+    g_free(basename);
+    g_free(state_dir);
+    return safe_path;
+}
+
+// Map abstract path to absolute path
+char *
+ariel_map_abstract_path(LV2_State_Handle handle, const char *abstract_path)
+{
+    ArielPluginManager *manager = (ArielPluginManager *)handle;
+    if (!manager || !abstract_path) return NULL;
+    
+    // Convert abstract path to absolute path within state directory
+    ArielConfig *config = manager->config;
+    const char *config_dir = ariel_config_get_dir(config);
+    char *state_dir = g_build_filename(config_dir, "plugin_state", NULL);
+    char *absolute_path = g_build_filename(state_dir, abstract_path, NULL);
+    
+    g_print("Mapped abstract path: %s -> %s\n", abstract_path, absolute_path);
+    
+    g_free(state_dir);
+    return absolute_path;
+}
+
 // Create LV2 feature array
 LV2_Feature **
 ariel_create_lv2_features(ArielPluginManager *manager, ArielAudioEngine *engine)
 {
     if (!manager || !engine) return NULL;
     
-    // Allocate features array (map, unmap, options, makePath, NULL terminator)
-    LV2_Feature **features = g_malloc0(5 * sizeof(LV2_Feature *));
+    // Allocate features array (map, unmap, options, makePath, mapPath, NULL terminator)
+    LV2_Feature **features = g_malloc0(6 * sizeof(LV2_Feature *));
     
     // URID Map feature
     LV2_URID_Map *map_feature = g_malloc0(sizeof(LV2_URID_Map));
@@ -160,10 +227,25 @@ ariel_create_lv2_features(ArielPluginManager *manager, ArielAudioEngine *engine)
     features[3]->URI = LV2_STATE__makePath;
     features[3]->data = make_path;
     
-    // NULL terminator
-    features[4] = NULL;
+    // State Map Path feature
+    LV2_State_Map_Path *map_path = g_malloc0(sizeof(LV2_State_Map_Path));
+    map_path->handle = manager;
+    map_path->absolute_path = ariel_map_absolute_path;
+    map_path->abstract_path = ariel_map_abstract_path;
     
-    g_print("Created LV2 features: URID Map/Unmap, Options, State Make Path\\n");
+    features[4] = g_malloc0(sizeof(LV2_Feature));
+    features[4]->URI = LV2_STATE__mapPath;
+    features[4]->data = map_path;
+    
+    // Pre-map important Atom URIs including Path
+    ariel_urid_map(manager->urid_map, LV2_ATOM__Path);
+    ariel_urid_map(manager->urid_map, LV2_ATOM__String);
+    ariel_urid_map(manager->urid_map, LV2_ATOM__URI);
+    
+    // NULL terminator
+    features[5] = NULL;
+    
+    g_print("Created LV2 features: URID Map/Unmap, Options, State Make Path, Map Path\n");
     return features;
 }
 

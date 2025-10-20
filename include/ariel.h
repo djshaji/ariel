@@ -10,6 +10,7 @@
 #include <lv2/urid/urid.h>
 #include <lv2/options/options.h>
 #include <lv2/state/state.h>
+#include <lv2/atom/atom.h>
 
 #define ARIEL_APP_ID "com.github.djshaji.ariel"
 #define APP "Ariel"
@@ -196,6 +197,11 @@ LV2_URID ariel_urid_map(LV2_URID_Map_Handle handle, const char *uri);
 const char *ariel_urid_unmap(LV2_URID_Unmap_Handle handle, LV2_URID urid);
 LV2_Feature **ariel_create_lv2_features(ArielPluginManager *manager, ArielAudioEngine *engine);
 void ariel_free_lv2_features(LV2_Feature **features);
+
+// LV2 Atom Path support
+char *ariel_map_absolute_path(LV2_State_Handle handle, const char *absolute_path);
+char *ariel_map_abstract_path(LV2_State_Handle handle, const char *abstract_path);
+LV2_URID ariel_get_atom_path_urid(ArielPluginManager *manager);
 
 // JACK callbacks
 int ariel_jack_process_callback(jack_nframes_t nframes, void *arg);

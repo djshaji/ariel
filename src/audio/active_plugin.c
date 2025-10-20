@@ -443,3 +443,18 @@ ariel_active_plugin_get_n_audio_outputs(ArielActivePlugin *plugin)
 {
     return plugin ? plugin->n_audio_outputs : 0;
 }
+
+void
+ariel_active_plugin_set_bypass(ArielActivePlugin *plugin, gboolean bypass)
+{
+    if (plugin) {
+        plugin->bypass = bypass;
+        g_print("Plugin %s bypass: %s\n", plugin->name, bypass ? "ON" : "OFF");
+    }
+}
+
+gboolean
+ariel_active_plugin_get_bypass(ArielActivePlugin *plugin)
+{
+    return plugin ? plugin->bypass : FALSE;
+}

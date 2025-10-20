@@ -3,6 +3,7 @@
 // Forward declarations
 static void on_remove_all_clicked(GtkButton *button, ArielWindow *window);
 static void on_remove_plugin_clicked(GtkButton *button, ArielWindow *window);
+static void on_bypass_toggled(GtkToggleButton *button, ArielActivePlugin *plugin);
 static gboolean on_plugin_drop(GtkDropTarget *target, const GValue *value, double x, double y, ArielWindow *window);
 static GdkDragAction on_drop_enter(GtkDropTarget *target, double x, double y, GtkWidget *plugins_box);
 static void on_drop_leave(GtkDropTarget *target, GtkWidget *plugins_box);
@@ -84,6 +85,18 @@ on_remove_plugin_clicked(G_GNUC_UNUSED GtkButton *button, ArielWindow *window)
     
     // Update the UI
     ariel_update_active_plugins_view(window);
+}
+
+// Callback for bypass button toggle
+static void
+on_bypass_toggled(GtkToggleButton *button, ArielActivePlugin *plugin)
+{
+    if (!plugin) {
+        return;
+    }
+    
+    gboolean bypass = gtk_toggle_button_get_active(button);
+    ariel_active_plugin_set_bypass(plugin, bypass);
 }
 
 // Drop target callbacks
@@ -303,6 +316,15 @@ ariel_create_active_plugin_widget(ArielActivePlugin *plugin, ArielWindow *window
     // Bypass button
     GtkWidget *bypass_btn = gtk_toggle_button_new_with_label("Bypass");
     gtk_widget_add_css_class(bypass_btn, "pill");
+    
+    // Set initial state based on plugin bypass status
+    gboolean is_bypassed = ariel_active_plugin_get_bypass(plugin);
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(bypass_btn), is_bypassed);
+    
+    // Connect callback
+    g_signal_connect(bypass_btn, "toggled", 
+                     G_CALLBACK(on_bypass_toggled), plugin);
+    
     gtk_box_append(GTK_BOX(header_box), bypass_btn);
     
     // Remove button

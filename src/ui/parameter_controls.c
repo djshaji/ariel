@@ -5,9 +5,10 @@
 typedef struct {
     ArielActivePlugin *plugin;
     uint32_t param_index;
+    GtkWidget *control_widget; // Reference to the control widget
 } ParameterControlData;
 
-// Callback for parameter value changes
+// Callback for parameter value changes (scales)
 static void
 on_parameter_changed(GtkRange *range, ParameterControlData *data)
 {
@@ -17,6 +18,33 @@ on_parameter_changed(GtkRange *range, ParameterControlData *data)
     ariel_active_plugin_set_parameter(data->plugin, data->param_index, (float)value);
     
     g_print("Parameter %u changed to %.3f\n", data->param_index, value);
+}
+
+// Callback for toggle button changes
+static void
+on_toggle_changed(GtkToggleButton *button, ParameterControlData *data)
+{
+    if (!data || !data->plugin) return;
+    
+    gboolean active = gtk_toggle_button_get_active(button);
+    float value = active ? 1.0f : 0.0f;
+    ariel_active_plugin_set_parameter(data->plugin, data->param_index, value);
+    
+    // Update button label
+    gtk_button_set_label(GTK_BUTTON(button), active ? "On" : "Off");
+    
+    g_print("Toggle parameter %u changed to %s\n", data->param_index, active ? "ON" : "OFF");
+}
+
+// Callback for file chooser button
+static void
+on_file_button_clicked(GtkButton *button, ParameterControlData *data)
+{
+    if (!data || !data->plugin) return;
+    
+    ariel_active_plugin_set_parameter(data->plugin, data->param_index, 1.0f);
+    gtk_button_set_label(button, "📁 File Selected");
+    g_print("File parameter %u: File selection triggered\n", data->param_index);
 }
 
 // Get parameter label from lilv port
@@ -63,6 +91,41 @@ get_parameter_range(const LilvPlugin *plugin, const LilvPort *port,
     }
 }
 
+// Check if port is a toggle (boolean) parameter
+static gboolean
+is_toggle_parameter(const LilvPlugin *plugin, const LilvPort *port)
+{
+    // Get plugin manager to access URID map
+    ArielApp *app = ARIEL_APP(g_application_get_default());
+    ArielPluginManager *manager = ariel_app_get_plugin_manager(app);
+    
+    if (!manager || !manager->world) return FALSE;
+    
+    LilvNode *toggled_uri = lilv_new_uri(manager->world, "http://lv2plug.in/ns/lv2core#toggled");
+    gboolean is_toggle = lilv_port_has_property(plugin, port, toggled_uri);
+    lilv_node_free(toggled_uri);
+    
+    return is_toggle;
+}
+
+// Check if port expects a file path (atom:Path)
+static gboolean
+is_path_parameter(const LilvPlugin *plugin, const LilvPort *port)
+{
+    // Get plugin manager to access URID map
+    ArielApp *app = ARIEL_APP(g_application_get_default());
+    ArielPluginManager *manager = ariel_app_get_plugin_manager(app);
+    
+    if (!manager || !manager->world) return FALSE;
+    
+    // Check if port expects atom:Path type
+    LilvNode *path_uri = lilv_new_uri(manager->world, LV2_ATOM__Path);
+    gboolean is_path = lilv_port_supports_event(plugin, port, path_uri);
+    lilv_node_free(path_uri);
+    
+    return is_path;
+}
+
 // Create parameter control widget for a single parameter
 static GtkWidget *
 create_parameter_control(ArielActivePlugin *plugin, uint32_t param_index)
@@ -93,29 +156,72 @@ create_parameter_control(ArielActivePlugin *plugin, uint32_t param_index)
     gtk_widget_add_css_class(param_label, "caption");
     gtk_box_append(GTK_BOX(param_box), param_label);
     
-    // Create scale widget
-    GtkWidget *scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 
-                                               min_val, max_val, 
-                                               (max_val - min_val) / 100.0);
-    gtk_scale_set_value_pos(GTK_SCALE(scale), GTK_POS_RIGHT);
-    gtk_scale_set_digits(GTK_SCALE(scale), 2);
-    gtk_range_set_value(GTK_RANGE(scale), default_val);
-    
-    // Set current parameter value
-    float current_value = ariel_active_plugin_get_parameter(plugin, param_index);
-    gtk_range_set_value(GTK_RANGE(scale), current_value);
-    
     // Create callback data
     ParameterControlData *data = g_malloc(sizeof(ParameterControlData));
     data->plugin = plugin;
     data->param_index = param_index;
     
-    // Connect signal with cleanup
-    g_signal_connect_data(scale, "value-changed",
-                         G_CALLBACK(on_parameter_changed), data,
-                         (GClosureNotify)g_free, 0);
+    GtkWidget *control_widget = NULL;
     
-    gtk_box_append(GTK_BOX(param_box), scale);
+    // Determine control type based on port properties
+    if (is_path_parameter(lilv_plugin, port)) {
+        // Create simple button for atom:Path parameters (placeholder for file selection)
+        control_widget = gtk_button_new_with_label("📁 Select File...");
+        gtk_widget_add_css_class(control_widget, "pill");
+        
+        data->control_widget = control_widget;
+        
+        // Simple placeholder callback - in a full implementation this would open a file dialog
+        g_signal_connect_data(control_widget, "clicked",
+                             G_CALLBACK(on_file_button_clicked), data,
+                             (GClosureNotify)g_free, 0);
+        
+        g_print("Created file chooser button for parameter: %s\n", label);
+        
+    } else if (is_toggle_parameter(lilv_plugin, port)) {
+        // Create toggle button for boolean parameters
+        control_widget = gtk_toggle_button_new_with_label("Off");
+        gtk_widget_add_css_class(control_widget, "pill");
+        
+        // Set initial state
+        float current_value = ariel_active_plugin_get_parameter(plugin, param_index);
+        gboolean is_active = (current_value > 0.5f);
+        gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(control_widget), is_active);
+        gtk_button_set_label(GTK_BUTTON(control_widget), is_active ? "On" : "Off");
+        
+        data->control_widget = control_widget;
+        
+        g_signal_connect_data(control_widget, "toggled",
+                             G_CALLBACK(on_toggle_changed), data,
+                             (GClosureNotify)g_free, 0);
+        
+        g_print("Created toggle button for parameter: %s\n", label);
+        
+    } else {
+        // Create scale widget for continuous parameters
+        control_widget = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 
+                                                 min_val, max_val, 
+                                                 (max_val - min_val) / 100.0);
+        gtk_scale_set_value_pos(GTK_SCALE(control_widget), GTK_POS_RIGHT);
+        gtk_scale_set_digits(GTK_SCALE(control_widget), 2);
+        gtk_range_set_value(GTK_RANGE(control_widget), default_val);
+        
+        // Set current parameter value
+
+
+
+        float current_value = ariel_active_plugin_get_parameter(plugin, param_index);
+        gtk_range_set_value(GTK_RANGE(control_widget), current_value);
+        
+        data->control_widget = control_widget;
+        g_signal_connect_data(control_widget, "value-changed",
+                             G_CALLBACK(on_parameter_changed), data,
+                             (GClosureNotify)g_free, 0);
+    }
+    
+    if (control_widget) {
+        gtk_box_append(GTK_BOX(param_box), control_widget);
+    }
     
     g_free(label);
     return param_box;

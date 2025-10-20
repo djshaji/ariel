@@ -5,6 +5,12 @@
 #include <lilv/lilv.h>
 #include <jack/jack.h>
 
+// LV2 Feature headers
+#include <lv2/core/lv2.h>
+#include <lv2/urid/urid.h>
+#include <lv2/options/options.h>
+#include <lv2/state/state.h>
+
 #define ARIEL_APP_ID "com.github.djshaji.ariel"
 #define APP "Ariel"
 
@@ -67,6 +73,13 @@ struct _ArielConfig {
     char *cache_file;
 };
 
+// URID map structure for LV2 features
+typedef struct {
+    GHashTable *uri_to_id;
+    GHashTable *id_to_uri;
+    uint32_t next_id;
+} ArielURIDMap;
+
 // Plugin manager structure
 struct _ArielPluginManager {
     LilvWorld *world;
@@ -74,6 +87,8 @@ struct _ArielPluginManager {
     GListStore *plugin_store;
     GListStore *active_plugin_store;
     ArielConfig *config;
+    ArielURIDMap *urid_map;
+    LV2_Feature **features;
 };
 
 // Function prototypes
@@ -173,6 +188,14 @@ gboolean ariel_plugin_manager_load_cache(ArielPluginManager *manager);
 void ariel_plugin_manager_save_cache(ArielPluginManager *manager);
 ArielActivePlugin *ariel_plugin_manager_load_plugin(ArielPluginManager *manager, ArielPluginInfo *plugin_info, ArielAudioEngine *engine);
 void ariel_plugin_manager_free(ArielPluginManager *manager);
+
+// URID Map support
+ArielURIDMap *ariel_urid_map_new(void);
+void ariel_urid_map_free(ArielURIDMap *map);
+LV2_URID ariel_urid_map(LV2_URID_Map_Handle handle, const char *uri);
+const char *ariel_urid_unmap(LV2_URID_Unmap_Handle handle, LV2_URID urid);
+LV2_Feature **ariel_create_lv2_features(ArielPluginManager *manager, ArielAudioEngine *engine);
+void ariel_free_lv2_features(LV2_Feature **features);
 
 // JACK callbacks
 int ariel_jack_process_callback(jack_nframes_t nframes, void *arg);

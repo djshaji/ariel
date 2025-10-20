@@ -1,5 +1,190 @@
 #include "ariel.h"
 
+// Forward declaration
+void ariel_free_lv2_features(LV2_Feature **features);
+
+// LV2 State interface implementation
+static LV2_State_Status
+ariel_state_store(LV2_State_Handle handle,
+                 uint32_t key,
+                 const void* value,
+                 size_t size,
+                 uint32_t type,
+                 uint32_t flags)
+{
+    ArielPluginManager *manager = (ArielPluginManager *)handle;
+    if (!manager || !value) return LV2_STATE_ERR_UNKNOWN;
+    
+    // For now, just log state store requests
+    // In a full implementation, we'd store this in the plugin's state
+    g_print("Plugin state store: key=%u, size=%zu, type=%u, flags=%u\n", 
+            key, size, type, flags);
+    return LV2_STATE_SUCCESS;
+}
+
+static const void*
+ariel_state_retrieve(LV2_State_Handle handle,
+                    uint32_t key,
+                    size_t* size,
+                    uint32_t* type,
+                    uint32_t* flags)
+{
+    ArielPluginManager *manager = (ArielPluginManager *)handle;
+    if (!manager) return NULL;
+    
+    // For now, return NULL (no stored state)
+    // In a full implementation, we'd retrieve from plugin's stored state
+    g_print("Plugin state retrieve: key=%u\n", key);
+    if (size) *size = 0;
+    if (type) *type = 0;
+    if (flags) *flags = 0;
+    return NULL;
+}
+
+static char*
+ariel_state_make_path(LV2_State_Handle handle, const char* path)
+{
+    ArielPluginManager *manager = (ArielPluginManager *)handle;
+    if (!manager || !path) return NULL;
+    
+    // Create state directory if it doesn't exist
+    ArielConfig *config = manager->config;
+    const char *config_dir = ariel_config_get_dir(config);
+    char *state_dir = g_build_filename(config_dir, "plugin_state", NULL);
+    g_mkdir_with_parents(state_dir, 0755);
+    
+    char *full_path = g_build_filename(state_dir, path, NULL);
+    g_free(state_dir);
+    
+    g_print("Plugin state make_path: %s -> %s\n", path, full_path);
+    return full_path;
+}
+
+// URID Map Implementation
+ArielURIDMap *
+ariel_urid_map_new(void)
+{
+    ArielURIDMap *map = g_malloc0(sizeof(ArielURIDMap));
+    map->uri_to_id = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+    map->id_to_uri = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_free);
+    map->next_id = 1; // Start from 1, as 0 is reserved for "no value"
+    return map;
+}
+
+void
+ariel_urid_map_free(ArielURIDMap *map)
+{
+    if (!map) return;
+    
+    g_hash_table_destroy(map->uri_to_id);
+    g_hash_table_destroy(map->id_to_uri);
+    g_free(map);
+}
+
+LV2_URID
+ariel_urid_map(LV2_URID_Map_Handle handle, const char *uri)
+{
+    ArielURIDMap *map = (ArielURIDMap *)handle;
+    if (!map || !uri) return 0;
+    
+    // Check if URI already exists
+    gpointer existing_id = g_hash_table_lookup(map->uri_to_id, uri);
+    if (existing_id) {
+        return GPOINTER_TO_UINT(existing_id);
+    }
+    
+    // Create new mapping
+    LV2_URID new_id = map->next_id++;
+    char *uri_copy = g_strdup(uri);
+    char *uri_copy2 = g_strdup(uri);
+    
+    g_hash_table_insert(map->uri_to_id, uri_copy, GUINT_TO_POINTER(new_id));
+    g_hash_table_insert(map->id_to_uri, GUINT_TO_POINTER(new_id), uri_copy2);
+    
+    g_print("URID Map: %s -> %u\n", uri, new_id);
+    return new_id;
+}
+
+const char *
+ariel_urid_unmap(LV2_URID_Unmap_Handle handle, LV2_URID urid)
+{
+    ArielURIDMap *map = (ArielURIDMap *)handle;
+    if (!map || urid == 0) return NULL;
+    
+    return (const char *)g_hash_table_lookup(map->id_to_uri, GUINT_TO_POINTER(urid));
+}
+
+// Create LV2 feature array
+LV2_Feature **
+ariel_create_lv2_features(ArielPluginManager *manager, ArielAudioEngine *engine)
+{
+    if (!manager || !engine) return NULL;
+    
+    // Allocate features array (map, unmap, options, makePath, NULL terminator)
+    LV2_Feature **features = g_malloc0(5 * sizeof(LV2_Feature *));
+    
+    // URID Map feature
+    LV2_URID_Map *map_feature = g_malloc0(sizeof(LV2_URID_Map));
+    map_feature->handle = manager->urid_map;
+    map_feature->map = ariel_urid_map;
+    
+    features[0] = g_malloc0(sizeof(LV2_Feature));
+    features[0]->URI = LV2_URID__map;
+    features[0]->data = map_feature;
+    
+    // URID Unmap feature
+    LV2_URID_Unmap *unmap_feature = g_malloc0(sizeof(LV2_URID_Unmap));
+    unmap_feature->handle = manager->urid_map;
+    unmap_feature->unmap = ariel_urid_unmap;
+    
+    features[1] = g_malloc0(sizeof(LV2_Feature));
+    features[1]->URI = LV2_URID__unmap;
+    features[1]->data = unmap_feature;
+    
+    // Basic Options feature - create empty options array to satisfy plugins
+    LV2_Options_Option *options = g_malloc0(1 * sizeof(LV2_Options_Option));
+    // Just create terminator - many plugins just check for presence of feature
+    options[0].key = 0;
+    options[0].value = NULL;
+    
+    features[2] = g_malloc0(sizeof(LV2_Feature));
+    features[2]->URI = LV2_OPTIONS__options;
+    features[2]->data = options;
+    
+    // State Make Path feature
+    LV2_State_Make_Path *make_path = g_malloc0(sizeof(LV2_State_Make_Path));
+    make_path->handle = manager;
+    make_path->path = ariel_state_make_path;
+    
+    features[3] = g_malloc0(sizeof(LV2_Feature));
+    features[3]->URI = LV2_STATE__makePath;
+    features[3]->data = make_path;
+    
+    // NULL terminator
+    features[4] = NULL;
+    
+    g_print("Created LV2 features: URID Map/Unmap, Options, State Make Path\\n");
+    return features;
+}
+
+void
+ariel_free_lv2_features(LV2_Feature **features)
+{
+    if (!features) return;
+    
+    for (int i = 0; features[i] != NULL; i++) {
+        if (g_strcmp0(features[i]->URI, LV2_OPTIONS__options) == 0) {
+            // Free options array
+            g_free(features[i]->data);
+        } else {
+            // Free other feature data
+            g_free(features[i]->data);
+        }
+        g_free(features[i]);
+    }
+    g_free(features);
+}
+
 // ArielPluginInfo GObject implementation
 struct _ArielPluginInfo {
     GObject parent;
@@ -140,6 +325,15 @@ ariel_plugin_manager_new(void)
         return NULL;
     }
     
+    // Initialize URID map
+    manager->urid_map = ariel_urid_map_new();
+    if (!manager->urid_map) {
+        g_warning("Failed to initialize URID map");
+        ariel_config_free(manager->config);
+        g_free(manager);
+        return NULL;
+    }
+    
     // Initialize lilv world
     manager->world = lilv_world_new();
     lilv_world_load_all(manager->world);
@@ -148,6 +342,9 @@ ariel_plugin_manager_new(void)
     // Create list stores for UI
     manager->plugin_store = g_list_store_new(ARIEL_TYPE_PLUGIN_INFO);
     manager->active_plugin_store = g_list_store_new(ARIEL_TYPE_ACTIVE_PLUGIN);
+    
+    // Initialize features as NULL - will be created when needed with engine reference
+    manager->features = NULL;
     
     // Try to load from cache first, otherwise refresh
     if (!ariel_plugin_manager_load_cache(manager)) {
@@ -345,6 +542,12 @@ ariel_plugin_manager_free(ArielPluginManager *manager)
     if (manager->active_plugin_store) {
         g_object_unref(manager->active_plugin_store);
     }
+    if (manager->features) {
+        ariel_free_lv2_features(manager->features);
+    }
+    if (manager->urid_map) {
+        ariel_urid_map_free(manager->urid_map);
+    }
     if (manager->world) {
         lilv_world_free(manager->world);
     }
@@ -387,9 +590,9 @@ ariel_save_plugin_chain_preset(ArielPluginManager *manager, const char *preset_n
         
         char *plugin_section = g_strdup_printf("plugin_%u", i);
         
-        // Save plugin info
+        // Get plugin URI
         const LilvPlugin *lilv_plugin = ariel_active_plugin_get_lilv_plugin(plugin);
-        LilvNode *uri_node = lilv_plugin_get_uri(lilv_plugin);
+        const LilvNode *uri_node = lilv_plugin_get_uri(lilv_plugin);
         const char *plugin_uri = lilv_node_as_uri(uri_node);
         
         g_key_file_set_string(preset_file, plugin_section, "uri", plugin_uri);

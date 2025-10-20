@@ -246,8 +246,19 @@ ariel_active_plugin_new(ArielPluginInfo *plugin_info, ArielAudioEngine *engine)
         }
     }
 
-        // Create plugin instance
-        plugin->instance = lilv_plugin_instantiate(plugin->lilv_plugin, engine->sample_rate, NULL);
+    // Get LV2 features from plugin manager
+    ArielPluginManager *plugin_manager = ariel_app_get_plugin_manager(
+        ARIEL_APP(g_application_get_default()));
+    
+    // Create or update features with engine reference
+    if (plugin_manager->features) {
+        ariel_free_lv2_features(plugin_manager->features);
+    }
+    plugin_manager->features = ariel_create_lv2_features(plugin_manager, engine);
+    
+    // Create plugin instance with LV2 features
+    plugin->instance = lilv_plugin_instantiate(plugin->lilv_plugin, engine->sample_rate, 
+                                              (const LV2_Feature* const*)plugin_manager->features);
     if (!plugin->instance) {
         g_warning("Failed to instantiate plugin %s", plugin->name);
         g_object_unref(plugin);

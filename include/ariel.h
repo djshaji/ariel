@@ -176,6 +176,7 @@ gboolean ariel_active_plugin_get_bypass(ArielActivePlugin *plugin);
 
 // Atom Messaging for File Parameters
 void ariel_active_plugin_set_file_parameter(ArielActivePlugin *plugin, const char *file_path);
+void ariel_active_plugin_set_file_parameter_with_uri(ArielActivePlugin *plugin, const char *file_path, const char *parameter_uri);
 gboolean ariel_active_plugin_supports_file_parameters(ArielActivePlugin *plugin);
 
 // Preset Management

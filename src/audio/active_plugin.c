@@ -834,18 +834,25 @@ ariel_active_plugin_free_preset_list(char **preset_list)
     g_free(preset_list);
 }
 
-// Send file path to plugin via Atom message
+// Send file path to plugin via Atom message with specific parameter URI
 void
-ariel_active_plugin_set_file_parameter(ArielActivePlugin *plugin, const char *file_path)
+ariel_active_plugin_set_file_parameter_with_uri(ArielActivePlugin *plugin, const char *file_path, const char *parameter_uri)
 {
-    if (!plugin || !file_path || plugin->n_atom_inputs == 0) {
-        g_print("Cannot send file parameter: plugin=%p, file_path=%s, atom_inputs=%u\n", 
-                (void*)plugin, file_path, plugin ? plugin->n_atom_inputs : 0);
+    if (!plugin || !file_path || !parameter_uri || plugin->n_atom_inputs == 0) {
+        g_print("Cannot send file parameter: plugin=%p, file_path=%s, parameter_uri=%s, atom_inputs=%u\n", 
+                (void*)plugin, file_path, parameter_uri, plugin ? plugin->n_atom_inputs : 0);
         return;
     }
     
     if (!plugin->urid_map) {
         g_print("No URID map available for Atom messaging\n");
+        return;
+    }
+    
+    // Map the parameter URI to a URID
+    LV2_URID parameter_urid = plugin->urid_map->map(plugin->urid_map->handle, parameter_uri);
+    if (parameter_urid == 0) {
+        g_print("Failed to map parameter URI to URID: %s\n", parameter_uri);
         return;
     }
     
@@ -873,11 +880,10 @@ ariel_active_plugin_set_file_parameter(ArielActivePlugin *plugin, const char *fi
     
     // Validate required URIDs
     if (plugin->atom_Sequence == 0 || plugin->patch_Set == 0 || 
-        plugin->patch_property == 0 || plugin->patch_value == 0 ||
-        plugin->plugin_model_uri == 0) {
-        g_print("Required URIDs not properly initialized: seq=%u, set=%u, prop=%u, val=%u, model=%u\n",
+        plugin->patch_property == 0 || plugin->patch_value == 0) {
+        g_print("Required URIDs not properly initialized: seq=%u, set=%u, prop=%u, val=%u\n",
                 plugin->atom_Sequence, plugin->patch_Set, plugin->patch_property, 
-                plugin->patch_value, plugin->plugin_model_uri);
+                plugin->patch_value);
         return;
     }
     
@@ -931,17 +937,9 @@ ariel_active_plugin_set_file_parameter(ArielActivePlugin *plugin, const char *fi
         return;
     }
     
-    // Forge patch:Set message
-    LV2_Atom_Forge_Frame set_frame;
-    if (lv2_atom_forge_frame_time(&forge, 0) == 0) {
-        g_print("Failed to forge frame time\n");
-        if (was_active) {
-            plugin->active = TRUE;
-        }
-        return;
-    }
-    
-    if (lv2_atom_forge_object(&forge, &set_frame, 0, plugin->patch_Set) == 0) {
+    // Create patch:Set object with the file path
+    LV2_Atom_Forge_Frame object_frame;
+    if (lv2_atom_forge_object(&forge, &object_frame, 0, plugin->patch_Set) == 0) {
         g_print("Failed to forge patch:Set object\n");
         if (was_active) {
             plugin->active = TRUE;
@@ -949,29 +947,28 @@ ariel_active_plugin_set_file_parameter(ArielActivePlugin *plugin, const char *fi
         return;
     }
     
+    // Add patch:property with the parameter URID
     if (lv2_atom_forge_key(&forge, plugin->patch_property) == 0 ||
-        lv2_atom_forge_urid(&forge, plugin->plugin_model_uri) == 0) {
-        g_print("Failed to forge property key/value\n");
-        lv2_atom_forge_pop(&forge, &set_frame);
-        lv2_atom_forge_pop(&forge, &frame);
+        lv2_atom_forge_urid(&forge, parameter_urid) == 0) {
+        g_print("Failed to forge property key/value: property=%u, param=%u\n", 
+                plugin->patch_property, parameter_urid);
         if (was_active) {
             plugin->active = TRUE;
         }
         return;
     }
     
+    // Add patch:value with the file path as atom:Path
     if (lv2_atom_forge_key(&forge, plugin->patch_value) == 0 ||
         lv2_atom_forge_path(&forge, file_path, strlen(file_path)) == 0) {
         g_print("Failed to forge value key/path\n");
-        lv2_atom_forge_pop(&forge, &set_frame);
-        lv2_atom_forge_pop(&forge, &frame);
         if (was_active) {
             plugin->active = TRUE;
         }
         return;
     }
     
-    lv2_atom_forge_pop(&forge, &set_frame);
+    lv2_atom_forge_pop(&forge, &object_frame);
     lv2_atom_forge_pop(&forge, &frame);
     
     // Update sequence size with bounds check
@@ -987,15 +984,40 @@ ariel_active_plugin_set_file_parameter(ArielActivePlugin *plugin, const char *fi
         return;
     }
     
-    seq->atom.size = new_size;
+    seq->atom.size = (uint32_t)new_size;
     
-    // Reactivate plugin if it was active before
+    // Connect the atom port if not already connected
+    if (plugin->instance && plugin->atom_input_port_indices[0] != UINT32_MAX) {
+        lilv_instance_connect_port(plugin->instance, plugin->atom_input_port_indices[0], seq);
+    }
+    
+    // Log the message we're sending
+    g_print("Sent file path to %s: %s (sequence size: %u, forge offset: %u)\n", 
+           plugin->name, file_path, (unsigned int)seq->atom.size, (unsigned int)forge.offset);
+    
+    g_print("Neural model loaded: %s\n", file_path);
+    
+    // Reactivate plugin if it was active
     if (was_active) {
         plugin->active = TRUE;
     }
+}
+
+// Send file path to plugin via Atom message (backward compatibility)
+void
+ariel_active_plugin_set_file_parameter(ArielActivePlugin *plugin, const char *file_path)
+{
+    if (!plugin || !file_path) {
+        g_print("Cannot send file parameter: plugin=%p, file_path=%s\n", 
+                (void*)plugin, file_path);
+        return;
+    }
     
-    g_print("Sent file path to Neural Amp Modeler: %s (sequence size: %u, forge offset: %u)\n", 
-            file_path, seq->atom.size, (uint32_t)forge.offset);
+    // Use the Neural Amp Modeler URI for backward compatibility
+    // This is the hardcoded URI for model parameter
+    const char *model_uri = "http://github.com/mikeoliphant/neural-amp-modeler-lv2#model";
+    
+    ariel_active_plugin_set_file_parameter_with_uri(plugin, file_path, model_uri);
 }
 
 // Check if plugin supports file parameters via Atom messaging
@@ -1004,8 +1026,11 @@ ariel_active_plugin_supports_file_parameters(ArielActivePlugin *plugin)
 {
     if (!plugin) return FALSE;
     
-    // Check if plugin has atom input ports and required URIDs
+    // Check if plugin has atom input ports and required URIDs for Atom messaging
     return (plugin->n_atom_inputs > 0 && 
             plugin->urid_map != NULL &&
-            plugin->plugin_model_uri != 0);
+            plugin->atom_Path != 0 &&
+            plugin->patch_Set != 0 &&
+            plugin->patch_property != 0 &&
+            plugin->patch_value != 0);
 }

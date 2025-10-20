@@ -24,7 +24,7 @@ ariel_worker_thread_func(gpointer data, gpointer user_data)
     
     // In a full implementation, this would call the plugin's work interface
     // For now, we'll just simulate work processing
-    g_print("Processing worker task for plugin, size: %u\n", work->size);
+    // Processing worker task silently
     
     // Simulate some work
     g_usleep(1000); // 1ms of work
@@ -108,7 +108,7 @@ ariel_worker_schedule(LV2_Worker_Schedule_Handle handle, uint32_t size, const vo
         return LV2_WORKER_ERR_UNKNOWN;
     }
     
-    g_print("Scheduled worker task, size: %u\n", size);
+    // Scheduled worker task silently
     return LV2_WORKER_SUCCESS;
 }
 
@@ -120,7 +120,7 @@ ariel_worker_respond(ArielActivePlugin *plugin, uint32_t size, const void *data)
     
     // In a full implementation, this would call the plugin's work_response interface
     // through a safe mechanism (like a lock-free queue to the audio thread)
-    g_print("Worker response for plugin, size: %u\n", size);
+    // Worker response handled silently
 }
 
 // LV2 State interface implementation
@@ -765,12 +765,18 @@ ariel_plugin_manager_free(ArielPluginManager *manager)
 {
     if (!manager) return;
     
+    // Defensive cleanup - check validity before clearing to prevent g_object_unref errors
     if (manager->plugin_store && G_IS_OBJECT(manager->plugin_store)) {
-        g_object_unref(manager->plugin_store);
+        g_clear_object(&manager->plugin_store);
+    } else if (manager->plugin_store) {
+        // Object is not valid, safely set to NULL to avoid crash
         manager->plugin_store = NULL;
     }
+    
     if (manager->active_plugin_store && G_IS_OBJECT(manager->active_plugin_store)) {
-        g_object_unref(manager->active_plugin_store);
+        g_clear_object(&manager->active_plugin_store);
+    } else if (manager->active_plugin_store) {
+        // Object is not valid, safely set to NULL to avoid crash
         manager->active_plugin_store = NULL;
     }
     if (manager->features) {

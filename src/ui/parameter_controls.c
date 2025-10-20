@@ -6,6 +6,7 @@ typedef struct {
     ArielActivePlugin *plugin;
     uint32_t param_index;
     GtkWidget *control_widget; // Reference to the control widget
+    char *parameter_uri; // For file parameters - the actual parameter URI
 } ParameterControlData;
 
 // Callback for parameter value changes (scales)
@@ -132,12 +133,12 @@ on_file_dialog_open_finish(GObject *source, GAsyncResult *result, gpointer user_
             // Validate file extension
             if (g_str_has_suffix(file_path, ".nam") || g_str_has_suffix(file_path, ".nammodel")) {
                 // Double-check plugin validity before sending file parameter
-                if (ariel_active_plugin_supports_file_parameters(data->plugin)) {
-                    g_print("Sending file parameter to plugin: %s\n", file_path);
+                if (ariel_active_plugin_supports_file_parameters(data->plugin) && data->parameter_uri) {
+                    g_print("Sending file parameter to plugin: %s (URI: %s)\n", file_path, data->parameter_uri);
                     // Send file path to plugin via Atom message
-                    ariel_active_plugin_set_file_parameter(data->plugin, file_path);
+                    ariel_active_plugin_set_file_parameter_with_uri(data->plugin, file_path, data->parameter_uri);
                 } else {
-                    g_warning("Plugin does not support file parameters or is invalid");
+                    g_warning("Plugin does not support file parameters or parameter URI is missing");
                 }
                 
                 // Update button label to show filename
@@ -446,6 +447,50 @@ create_file_parameter_control(ArielActivePlugin *plugin, const LilvPlugin *lilv_
     // Get parameter info
     char *label = get_parameter_label(lilv_plugin, port);
     
+    // Find the parameter URI for this atom:Path parameter
+    char *parameter_uri = NULL;
+    ArielApp *app = ARIEL_APP(g_application_get_default());
+    ArielPluginManager *manager = ariel_app_get_plugin_manager(app);
+    
+    if (manager && manager->world) {
+        const LilvNode *plugin_uri = lilv_plugin_get_uri(lilv_plugin);
+        LilvNode *patch_writable = lilv_new_uri(manager->world, LV2_PATCH__writable);
+        LilvNode *rdfs_range = lilv_new_uri(manager->world, "http://www.w3.org/2000/01/rdf-schema#range");
+        LilvNode *atom_path = lilv_new_uri(manager->world, LV2_ATOM__Path);
+        
+        // Find the first parameter with atom:Path range
+        LilvNodes *writables = lilv_world_find_nodes(manager->world, plugin_uri, patch_writable, NULL);
+        if (writables) {
+            LILV_FOREACH(nodes, i, writables) {
+                const LilvNode *writable = lilv_nodes_get(writables, i);
+                LilvNodes *ranges = lilv_world_find_nodes(manager->world, writable, rdfs_range, NULL);
+                if (ranges) {
+                    LILV_FOREACH(nodes, j, ranges) {
+                        const LilvNode *range = lilv_nodes_get(ranges, j);
+                        if (lilv_node_equals(range, atom_path)) {
+                            parameter_uri = g_strdup(lilv_node_as_uri(writable));
+                            lilv_nodes_free(ranges);
+                            goto found_parameter;
+                        }
+                    }
+                    lilv_nodes_free(ranges);
+                }
+            }
+            found_parameter:
+            lilv_nodes_free(writables);
+        }
+        
+        lilv_node_free(patch_writable);
+        lilv_node_free(rdfs_range);
+        lilv_node_free(atom_path);
+    }
+    
+    if (!parameter_uri) {
+        g_warning("Could not find parameter URI for file parameter");
+        g_free(label);
+        return NULL;
+    }
+    
     // Create container box
     GtkWidget *param_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
     gtk_widget_set_margin_start(param_box, 8);
@@ -463,6 +508,7 @@ create_file_parameter_control(ArielActivePlugin *plugin, const LilvPlugin *lilv_
     ParameterControlData *data = g_malloc(sizeof(ParameterControlData));
     data->plugin = plugin;
     data->param_index = 0; // This is for Atom messaging, not indexed parameters
+    data->parameter_uri = parameter_uri; // Store the actual parameter URI
     
     // Create file chooser button for atom:Path parameters
     GtkWidget *control_widget = gtk_button_new_with_label("📁 Select Neural Model...");
@@ -474,10 +520,10 @@ create_file_parameter_control(ArielActivePlugin *plugin, const LilvPlugin *lilv_
     // Add tooltip
     gtk_widget_set_tooltip_text(control_widget, "Click to select a Neural Amp Model file (.nam or .nammodel)");
     
-    // File chooser callback for loading neural models
+    // File chooser callback for loading neural models  
     g_signal_connect_data(control_widget, "clicked",
                          G_CALLBACK(on_file_button_clicked), data,
-                         (GClosureNotify)g_free, 0);
+                         NULL, 0);  // We'll handle cleanup in the callback
     
     gtk_box_append(GTK_BOX(param_box), control_widget);
     

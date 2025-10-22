@@ -49,6 +49,7 @@ struct _ArielActivePlugin {
     // URIDs for Atom messaging
     LV2_URID_Map *urid_map;
     LV2_URID atom_Path;
+    LV2_URID atom_Object ;
     LV2_URID atom_String;
     LV2_URID atom_Sequence;
     LV2_URID patch_Set;
@@ -418,6 +419,7 @@ ariel_active_plugin_new(ArielPluginInfo *plugin_info, ArielAudioEngine *engine)
         }
         
         plugin->atom_Path = ariel_urid_map(manager->urid_map, LV2_ATOM__Path);
+        plugin->atom_Object = ariel_urid_map(manager->urid_map, LV2_ATOM__Object);
         plugin->atom_String = ariel_urid_map(manager->urid_map, LV2_ATOM__String);
         plugin->atom_Sequence = ariel_urid_map(manager->urid_map, LV2_ATOM__Sequence);
         plugin->patch_Set = ariel_urid_map(manager->urid_map, LV2_PATCH__Set);
@@ -881,12 +883,12 @@ ariel_active_plugin_set_file_parameter_with_uri(ArielActivePlugin *plugin, const
     }
     
     // Create UI message with file path (jalv-style thread-safe communication)
-    size_t path_len = strlen(file_path) + 1;
-    ArielUIMessage *msg = g_malloc(sizeof(ArielUIMessage) + path_len);
+    size_t path_len = strlen(file_path);
+    ArielUIMessage *msg = g_malloc(sizeof(ArielUIMessage) + path_len + 1);
     msg->property = parameter_urid;
     msg->type = plugin->atom_Path;
-    msg->size = (uint32_t)path_len;
-    memcpy(msg->data, file_path, path_len);
+    msg->size = (uint32_t)path_len + 1; // Include null terminator in size for atom:Path
+    memcpy(msg->data, file_path, path_len + 1); // Copy with null terminator
     
     // Queue message for processing in audio thread
     g_async_queue_push(plugin->ui_messages, msg);
@@ -1048,30 +1050,34 @@ ariel_active_plugin_process_ui_messages(ArielActivePlugin *plugin)
             size_t buffer_size = plugin->atom_buffer_size - sizeof(LV2_Atom_Sequence);
             lv2_atom_forge_set_buffer(&forge, buffer, buffer_size);
             
-            // Build patch:Set message
+            ariel_log(INFO, "Creating patch:Set message: property=%u, value='%s', size=%u", 
+                      msg->property, msg->data, msg->size);
+            
+            // Build patch:Set message exactly like NAM plugin expects
             LV2_Atom_Forge_Frame frame;
             if (lv2_atom_forge_sequence_head(&forge, &frame, 0)) {
+                // Create event with frame time 0
+                lv2_atom_forge_frame_time(&forge, 0);
+                
                 LV2_Atom_Forge_Frame object_frame;
                 if (lv2_atom_forge_object(&forge, &object_frame, 0, plugin->patch_Set)) {
-                    // Add property
-                    if (lv2_atom_forge_key(&forge, plugin->patch_property) &&
-                        lv2_atom_forge_urid(&forge, msg->property)) {
-                        // Add value
-                        if (lv2_atom_forge_key(&forge, plugin->patch_value)) {
-                            if (msg->type == plugin->atom_Path) {
-                                lv2_atom_forge_path(&forge, msg->data, msg->size - 1);
-                            } else {
-                                lv2_atom_forge_atom(&forge, msg->size, msg->type);
-                                lv2_atom_forge_write(&forge, msg->data, msg->size);
-                            }
-                        }
-                    }
+                    // Add patch:property key with the parameter URID as value
+                    lv2_atom_forge_key(&forge, plugin->patch_property);
+                    lv2_atom_forge_urid(&forge, msg->property);
+                    
+                    // Add patch:value key with the file path as atom:Path
+                    lv2_atom_forge_key(&forge, plugin->patch_value);
+                    lv2_atom_forge_path(&forge, msg->data, msg->size);
+                    
                     lv2_atom_forge_pop(&forge, &object_frame);
                 }
                 lv2_atom_forge_pop(&forge, &frame);
                 
                 // Update sequence size
                 seq->atom.size = sizeof(LV2_Atom_Sequence_Body) + forge.offset;
+                
+                ariel_log(INFO, "Created atom sequence: total_size=%u, forge_offset=%u", 
+                          seq->atom.size, (uint32_t)forge.offset);
                 
                 ariel_log(INFO, "Processed UI message for plugin %s: property=%u, type=%u, size=%u",
                           plugin->name, msg->property, msg->type, msg->size);

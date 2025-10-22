@@ -23,6 +23,8 @@ ArielLogLevel ariel_log_get_level(void);
 #define ariel_log(level, format, ...) \
     ariel_log_impl(level, __FILE__, __LINE__, __func__, format, ##__VA_ARGS__)
 
+
+#define alog ariel_log
 // Convenience macros for each log level  
 #define ARIEL_ERROR(format, ...) ariel_log(ARIEL_LOG_ERROR, format, ##__VA_ARGS__)
 #define ARIEL_WARN(format, ...)  ariel_log(ARIEL_LOG_WARN, format, ##__VA_ARGS__)

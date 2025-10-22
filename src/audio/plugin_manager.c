@@ -3,6 +3,78 @@
 // Forward declaration
 void ariel_free_lv2_features(LV2_Feature **features);
 
+// LV2 Log interface implementation
+static int
+ariel_log_printf(LV2_Log_Handle handle, LV2_URID type, const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    
+    // Convert LV2 log type to our log level
+    ArielLogLevel level = INFO;
+    
+    // Map common LV2 log URIDs to our levels
+    ArielPluginManager *manager = (ArielPluginManager *)handle;
+    if (manager && manager->urid_map) {
+        LV2_URID error_urid = ariel_urid_map(manager->urid_map, LV2_LOG__Error);
+        LV2_URID warning_urid = ariel_urid_map(manager->urid_map, LV2_LOG__Warning);
+        LV2_URID note_urid = ariel_urid_map(manager->urid_map, LV2_LOG__Note);
+        
+        if (type == error_urid) {
+            level = ERROR;
+        } else if (type == warning_urid) {
+            level = WARN;
+        } else if (type == note_urid) {
+            level = INFO;
+        } else {
+            // Unknown type, default to INFO
+            level = INFO;
+        }
+    }
+    
+    // Format message
+    char message[1024];
+    vsnprintf(message, sizeof(message), fmt, args);
+    va_end(args);
+    
+    // Log through our system with plugin prefix
+    ariel_log(level, "[LV2] %s", message);
+    
+    return 0;
+}
+
+static int
+ariel_log_vprintf(LV2_Log_Handle handle, LV2_URID type, const char *fmt, va_list ap)
+{
+    // Convert LV2 log type to our log level
+    ArielLogLevel level = INFO;
+    
+    // Map common LV2 log URIDs to our levels
+    ArielPluginManager *manager = (ArielPluginManager *)handle;
+    if (manager && manager->urid_map) {
+        LV2_URID error_urid = ariel_urid_map(manager->urid_map, LV2_LOG__Error);
+        LV2_URID warning_urid = ariel_urid_map(manager->urid_map, LV2_LOG__Warning);
+        LV2_URID note_urid = ariel_urid_map(manager->urid_map, LV2_LOG__Note);
+        
+        if (type == error_urid) {
+            level = ERROR;
+        } else if (type == warning_urid) {
+            level = WARN;
+        } else if (type == note_urid) {
+            level = INFO;
+        }
+    }
+    
+    // Format message
+    char message[1024];
+    vsnprintf(message, sizeof(message), fmt, ap);
+    
+    // Log through our system with plugin prefix
+    ariel_log(level, "[LV2] %s", message);
+    
+    return 0;
+}
+
 // Worker schedule work item structure
 typedef struct {
     ArielActivePlugin *plugin;
@@ -307,8 +379,8 @@ ariel_create_lv2_features(ArielPluginManager *manager, ArielAudioEngine *engine)
 {
     if (!manager || !engine) return NULL;
     
-    // Allocate features array (map, unmap, options, makePath, mapPath, schedule, NULL terminator)
-    LV2_Feature **features = g_malloc0(7 * sizeof(LV2_Feature *));
+    // Allocate features array (map, unmap, options, makePath, mapPath, schedule, log, NULL terminator)
+    LV2_Feature **features = g_malloc0(8 * sizeof(LV2_Feature *));
     
     // URID Map feature
     LV2_URID_Map *map_feature = g_malloc0(sizeof(LV2_URID_Map));
@@ -366,15 +438,31 @@ ariel_create_lv2_features(ArielPluginManager *manager, ArielAudioEngine *engine)
     features[5]->URI = LV2_WORKER__schedule;
     features[5]->data = schedule;
     
+    // LV2 Log feature
+    LV2_Log_Log *log_feature = g_malloc0(sizeof(LV2_Log_Log));
+    log_feature->handle = manager;
+    log_feature->printf = ariel_log_printf;
+    log_feature->vprintf = ariel_log_vprintf;
+    
+    features[6] = g_malloc0(sizeof(LV2_Feature));
+    features[6]->URI = LV2_LOG__log;
+    features[6]->data = log_feature;
+    
     // Pre-map important Atom URIs including Path
     ariel_urid_map(manager->urid_map, LV2_ATOM__Path);
     ariel_urid_map(manager->urid_map, LV2_ATOM__String);
     ariel_urid_map(manager->urid_map, LV2_ATOM__URI);
     
-    // NULL terminator
-    features[6] = NULL;
+    // Pre-map LV2 log URIDs
+    ariel_urid_map(manager->urid_map, LV2_LOG__Error);
+    ariel_urid_map(manager->urid_map, LV2_LOG__Warning);
+    ariel_urid_map(manager->urid_map, LV2_LOG__Note);
+    ariel_urid_map(manager->urid_map, LV2_LOG__Trace);
     
-    g_print("Created LV2 features: URID Map/Unmap, Options, State Make Path, Map Path, Worker Schedule\n");
+    // NULL terminator
+    features[7] = NULL;
+    
+    g_print("Created LV2 features: URID Map/Unmap, Options, State Make Path, Map Path, Worker Schedule, Log\n");
     return features;
 }
 
@@ -389,6 +477,9 @@ ariel_free_lv2_features(LV2_Feature **features)
             g_free(features[i]->data);
         } else if (g_strcmp0(features[i]->URI, LV2_WORKER__schedule) == 0) {
             // Free worker schedule
+            g_free(features[i]->data);
+        } else if (g_strcmp0(features[i]->URI, LV2_LOG__log) == 0) {
+            // Free log feature
             g_free(features[i]->data);
         } else {
             // Free other feature data

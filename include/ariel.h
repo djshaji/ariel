@@ -14,6 +14,7 @@
 #include <lv2/atom/forge.h>
 #include <lv2/patch/patch.h>
 #include <lv2/worker/worker.h>
+#include <lv2/log/log.h>
 
 // Ariel logging system
 #include "ariel_log.h"

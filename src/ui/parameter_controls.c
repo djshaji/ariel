@@ -547,12 +547,15 @@ ariel_create_parameter_controls(ArielActivePlugin *plugin)
     
     ariel_log(INFO, "Creating parameter controls for plugin: %s", 
               lilv_node_as_string(lilv_plugin_get_name(lilv_plugin)));
-              
+
     // Create scrolled window for parameters
     GtkWidget *scrolled = gtk_scrolled_window_new();
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled),
                                   GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
-    gtk_widget_set_size_request(scrolled, -1, 400);
+    // gtk_widget_set_size_request(scrolled, -1, 400);
+    gtk_widget_set_vexpand(scrolled, TRUE);
+    gtk_widget_set_hexpand(scrolled, TRUE);
+    gtk_widget_set_size_request(scrolled, 200, 400);
     
     // Create container for all parameters
     GtkWidget *params_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
@@ -601,7 +604,9 @@ ariel_create_parameter_controls(ArielActivePlugin *plugin)
         if (has_file_params) {
             for (uint32_t i = 0; i < lilv_plugin_get_num_ports(lilv_plugin); i++) {
                 const LilvPort *port = lilv_plugin_get_port_by_index(lilv_plugin, i);
+                ariel_log(INFO, "[%s] Checking port %u for file parameter...", lilv_node_as_string(lilv_plugin_get_name(lilv_plugin)), i);
                 if (is_plugin_parameter_path(lilv_plugin, port)) {
+                    ariel_log(INFO, "[%s] Creating file parameter control for port %u", lilv_node_as_string(lilv_plugin_get_name(lilv_plugin)), i);
                     GtkWidget *file_control = create_file_parameter_control(plugin, lilv_plugin, port);
                     if (file_control) {
                         gtk_box_append(GTK_BOX(params_box), file_control);

@@ -988,6 +988,7 @@ ariel_active_plugin_set_file_parameter_with_uri(ArielActivePlugin *plugin, const
     
     // Connect the atom port if not already connected
     if (plugin->instance && plugin->atom_input_port_indices[0] != UINT32_MAX) {
+        alog(INFO, "[%s] Connecting atom port %u", plugin->name, plugin->atom_input_port_indices[0]);
         lilv_instance_connect_port(plugin->instance, plugin->atom_input_port_indices[0], seq);
     }
     

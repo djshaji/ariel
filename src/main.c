@@ -83,39 +83,72 @@ ariel_app_get_plugin_manager(ArielApp *app)
 void
 ariel_load_custom_css(void)
 {
-    // Get config directory
-    const char *config_dir = g_get_user_config_dir();
-    if (!config_dir) {
+    GdkDisplay *display = gdk_display_get_default();
+    if (!display) {
+        ARIEL_ERROR("Failed to get default display for CSS loading");
         return;
     }
     
-    char *ariel_config_dir = g_build_filename(config_dir, "ariel", NULL);
-    char *css_file_path = g_build_filename(ariel_config_dir, "style.css", NULL);
+    // First, load the default theme CSS
+    GtkCssProvider *theme_provider = gtk_css_provider_new();
     
-    // Check if custom CSS file exists
-    if (g_file_test(css_file_path, G_FILE_TEST_EXISTS)) {
-        GtkCssProvider *css_provider = gtk_css_provider_new();
+    // Try to find the installed theme file
+    const char *data_dirs[] = {
+        "/usr/share/ariel",
+        "/usr/local/share/ariel", 
+        "data",  // Development fallback
+        NULL
+    };
+    
+    gboolean theme_loaded = FALSE;
+    for (int i = 0; data_dirs[i] != NULL; i++) {
+        char *theme_path = g_build_filename(data_dirs[i], "ariel-theme.css", NULL);
         
-        // Load the CSS file
-        gtk_css_provider_load_from_path(css_provider, css_file_path);
+        if (g_file_test(theme_path, G_FILE_TEST_EXISTS)) {
+            // GTK4 API - no error parameter
+            gtk_css_provider_load_from_path(theme_provider, theme_path);
+            
+            gtk_style_context_add_provider_for_display(display,
+                                                      GTK_STYLE_PROVIDER(theme_provider),
+                                                      GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+            ARIEL_INFO("Loaded default theme CSS from: %s", theme_path);
+            theme_loaded = TRUE;
+            
+            g_free(theme_path);
+            break;
+        }
+        g_free(theme_path);
+    }
+    
+    if (!theme_loaded) {
+        ARIEL_WARN("Default theme CSS file not found, using system theme");
+    }
+    
+    g_object_unref(theme_provider);
+    
+    // Then, load custom user CSS if it exists
+    const char *config_dir = g_get_user_config_dir();
+    if (config_dir) {
+        char *ariel_config_dir = g_build_filename(config_dir, "ariel", NULL);
+        char *css_file_path = g_build_filename(ariel_config_dir, "style.css", NULL);
         
-        // Apply CSS to the default display
-        GdkDisplay *display = gdk_display_get_default();
-        if (display) {
+        if (g_file_test(css_file_path, G_FILE_TEST_EXISTS)) {
+            GtkCssProvider *css_provider = gtk_css_provider_new();
+            
+            // GTK4 API - no error parameter
+            gtk_css_provider_load_from_path(css_provider, css_file_path);
+            
             gtk_style_context_add_provider_for_display(display,
                                                       GTK_STYLE_PROVIDER(css_provider),
                                                       GTK_STYLE_PROVIDER_PRIORITY_USER);
+            ARIEL_INFO("Loaded custom CSS from: %s", css_file_path);
             
-            g_print("Loaded custom CSS from: %s\n", css_file_path);
-        } else {
-            g_warning("Failed to get default display for CSS loading");
+            g_object_unref(css_provider);
         }
         
-        g_object_unref(css_provider);
+        g_free(ariel_config_dir);
+        g_free(css_file_path);
     }
-    
-    g_free(ariel_config_dir);
-    g_free(css_file_path);
 }
 
 int

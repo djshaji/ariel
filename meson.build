@@ -60,3 +60,8 @@ install_data(desktop_file,
 install_data('data/ariel.appdata.xml',
   install_dir : get_option('datadir') / 'metainfo'
 )
+
+# CSS theme file
+install_data('data/ariel-theme.css',
+  install_dir : get_option('datadir') / 'ariel'
+)

@@ -345,7 +345,10 @@ create_parameter_control(ArielActivePlugin *plugin, uint32_t param_index)
     const LilvPlugin *lilv_plugin = ariel_active_plugin_get_lilv_plugin(plugin);
     if (!lilv_plugin) return NULL;
     
-    // Get the control input port for this parameter
+    ariel_log (INFO, "Creating control for parameter index %u [%s]", param_index, 
+               lilv_node_as_string(lilv_plugin_get_uri(lilv_plugin)));
+
+               // Get the control input port for this parameter
     uint32_t control_port_index = ariel_active_plugin_get_control_port_index(plugin, param_index);
     const LilvPort *port = lilv_plugin_get_port_by_index(lilv_plugin, control_port_index);
     if (!port) return NULL;
@@ -446,6 +449,7 @@ create_file_parameter_control(ArielActivePlugin *plugin, const LilvPlugin *lilv_
 {
     // Get parameter info
     char *label = get_parameter_label(lilv_plugin, port);
+    ariel_log (INFO, "Creating file control for parameter [%s]", label);
     
     // Find the parameter URI for this atom:Path parameter
     char *parameter_uri = NULL;
@@ -541,6 +545,9 @@ ariel_create_parameter_controls(ArielActivePlugin *plugin)
     const LilvPlugin *lilv_plugin = ariel_active_plugin_get_lilv_plugin(plugin);
     if (!lilv_plugin) return NULL;
     
+    ariel_log(INFO, "Creating parameter controls for plugin: %s", 
+              lilv_node_as_string(lilv_plugin_get_name(lilv_plugin)));
+              
     // Create scrolled window for parameters
     GtkWidget *scrolled = gtk_scrolled_window_new();
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrolled),

@@ -297,16 +297,30 @@ ariel_worker_process_responses(ArielWorkerSchedule *worker)
         
         // Call plugin's work_response if available
         if (response->plugin) {
-            ariel_active_plugin_process_worker_responses(response->plugin);
-            
-            // Get plugin's LV2 instance and call work_response if available
-            const LilvPlugin *lilv_plugin = ariel_active_plugin_get_lilv_plugin(response->plugin);
-            if (lilv_plugin) {
-                // In a full implementation, we would:
-                // 1. Get the plugin's work interface from extension_data
-                // 2. Call the work_response method with the response data
-                // For now, we'll log the response processing
-                ariel_log(INFO, "Processing worker response: %u bytes for plugin", response->size);
+            // Get plugin's LV2 instance
+            LilvInstance *instance = ariel_active_plugin_get_instance(response->plugin);
+            if (instance) {
+                // Get the plugin's work interface from extension_data
+                const LV2_Worker_Interface *work_iface = 
+                    (const LV2_Worker_Interface*)lilv_instance_get_extension_data(instance, LV2_WORKER__interface);
+                
+                if (work_iface && work_iface->work_response) {
+                    // Call the work_response method with the response data
+                    LV2_Worker_Status status = work_iface->work_response(
+                        lilv_instance_get_handle(instance),
+                        response->size,
+                        response->data);
+                    
+                    if (status == LV2_WORKER_SUCCESS) {
+                        ariel_log(INFO, "Worker response processed successfully: %u bytes", response->size);
+                    } else {
+                        ariel_log(WARN, "Worker response processing failed with status: %d", status);
+                    }
+                } else {
+                    ariel_log(WARN, "Plugin does not provide work_response interface");
+                }
+            } else {
+                ariel_log(ERROR, "Cannot get LV2 instance for response processing");
             }
         }
         

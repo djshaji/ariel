@@ -243,6 +243,7 @@ void ariel_worker_process_responses(ArielWorkerSchedule *worker);
 
 // Active Plugin Worker Interface
 void ariel_active_plugin_process_worker_responses(ArielActivePlugin *plugin);
+void ariel_active_plugin_process_ui_messages(ArielActivePlugin *plugin);
 gboolean ariel_active_plugin_has_work_interface(ArielActivePlugin *plugin);
 LilvInstance *ariel_active_plugin_get_instance(ArielActivePlugin *plugin);
 

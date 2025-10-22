@@ -58,7 +58,18 @@ struct _ArielActivePlugin {
     
     // Audio engine reference
     ArielAudioEngine *engine;
+    
+    // UI communication
+    GAsyncQueue *ui_messages;
 };
+
+// UI message structure for thread-safe communication
+typedef struct {
+    LV2_URID property;
+    LV2_URID type;
+    uint32_t size;
+    char data[];
+} ArielUIMessage;
 
 G_DEFINE_FINAL_TYPE(ArielActivePlugin, ariel_active_plugin, G_TYPE_OBJECT)
 
@@ -105,6 +116,15 @@ ariel_active_plugin_finalize(GObject *object)
     // Free strings
     g_free(plugin->name);
     
+    // Clean up UI message queue
+    if (plugin->ui_messages) {
+        ArielUIMessage *msg;
+        while ((msg = g_async_queue_try_pop(plugin->ui_messages)) != NULL) {
+            g_free(msg);
+        }
+        g_async_queue_unref(plugin->ui_messages);
+    }
+    
     // Release references
     if (plugin->plugin_info) {
         g_object_unref(plugin->plugin_info);
@@ -143,6 +163,7 @@ ariel_active_plugin_init(ArielActivePlugin *plugin)
     plugin->atom_input_buffers = NULL;
     plugin->atom_output_buffers = NULL;
     plugin->engine = NULL;
+    plugin->ui_messages = g_async_queue_new();
 }
 
 ArielActivePlugin *
@@ -459,6 +480,9 @@ ariel_active_plugin_process(ArielActivePlugin *plugin, jack_nframes_t nframes)
     if (!plugin || !plugin->instance || !plugin->active || plugin->bypass) {
         return;
     }
+    
+    // Process UI messages before running plugin (jalv-style approach)
+    ariel_active_plugin_process_ui_messages(plugin);
     
     // Reset Atom output buffers for each processing cycle
     if (plugin->atom_output_buffers && plugin->n_atom_outputs > 0) {
@@ -834,13 +858,13 @@ ariel_active_plugin_free_preset_list(char **preset_list)
     g_free(preset_list);
 }
 
-// Send file path to plugin via Atom message with specific parameter URI
+// Send file path to plugin via thread-safe UI message queue (jalv-style approach)
 void
 ariel_active_plugin_set_file_parameter_with_uri(ArielActivePlugin *plugin, const char *file_path, const char *parameter_uri)
 {
-    if (!plugin || !file_path || !parameter_uri || plugin->n_atom_inputs == 0) {
-        ariel_log(ERROR, "Cannot send file parameter: plugin=%p, file_path=%s, parameter_uri=%s, atom_inputs=%u", 
-                (void*)plugin, file_path, parameter_uri, plugin ? plugin->n_atom_inputs : 0);
+    if (!plugin || !file_path || !parameter_uri) {
+        ariel_log(ERROR, "Cannot send file parameter: plugin=%p, file_path=%s, parameter_uri=%s", 
+                (void*)plugin, file_path, parameter_uri);
         return;
     }
     
@@ -856,152 +880,19 @@ ariel_active_plugin_set_file_parameter_with_uri(ArielActivePlugin *plugin, const
         return;
     }
     
-    // Validate URID map pointer and its function pointer
-    if ((void*)plugin->urid_map < (void*)0x1000 || (void*)plugin->urid_map > (void*)0x7fffffffffff) {
-        g_print("Invalid URID map pointer: %p\n", (void*)plugin->urid_map);
-        return;
-    }
+    // Create UI message with file path (jalv-style thread-safe communication)
+    size_t path_len = strlen(file_path) + 1;
+    ArielUIMessage *msg = g_malloc(sizeof(ArielUIMessage) + path_len);
+    msg->property = parameter_urid;
+    msg->type = plugin->atom_Path;
+    msg->size = (uint32_t)path_len;
+    memcpy(msg->data, file_path, path_len);
     
-    if (!plugin->urid_map->map) {
-        g_print("URID map function pointer is NULL\n");
-        return;
-    }
+    // Queue message for processing in audio thread
+    g_async_queue_push(plugin->ui_messages, msg);
     
-    // Additional safety checks
-    if (!plugin->atom_input_buffers || !plugin->atom_input_buffers[0]) {
-        g_print("No Atom input buffers available\n");
-        return;
-    }
-    
-    if (plugin->atom_buffer_size < sizeof(LV2_Atom_Sequence) + 256) {
-        g_print("Atom buffer too small: %u bytes\n", (unsigned int)plugin->atom_buffer_size);
-        return;
-    }
-    
-    // Validate required URIDs
-    if (plugin->atom_Sequence == 0 || plugin->patch_Set == 0 || 
-        plugin->patch_property == 0 || plugin->patch_value == 0) {
-        g_print("Required URIDs not properly initialized: seq=%u, set=%u, prop=%u, val=%u\n",
-                plugin->atom_Sequence, plugin->patch_Set, plugin->patch_property, 
-                plugin->patch_value);
-        return;
-    }
-    
-    // Get the first atom input port (control port)
-    LV2_Atom_Sequence *seq = (LV2_Atom_Sequence*)plugin->atom_input_buffers[0];
-    
-    // Temporarily deactivate plugin to prevent race condition with audio thread
-    gboolean was_active = plugin->active;
-    if (was_active) {
-        plugin->active = FALSE;
-        g_usleep(1000); // Wait 1ms for audio thread to finish current cycle
-    }
-    
-    // Clear the entire buffer first for safety
-    memset(seq, 0, plugin->atom_buffer_size);
-    
-    // Reset sequence header
-    seq->atom.type = plugin->atom_Sequence;
-    seq->atom.size = sizeof(LV2_Atom_Sequence_Body);
-    seq->body.unit = 0;
-    seq->body.pad = 0;
-    
-    // Create patch:Set message using LV2 Atom Forge
-    LV2_Atom_Forge forge;
-    
-    // Initialize forge with proper error checking
-    g_print("Initializing LV2 Atom Forge with URID map: %p (map function: %p)\n", 
-            (void*)plugin->urid_map, (void*)plugin->urid_map->map);
-    lv2_atom_forge_init(&forge, plugin->urid_map);
-    
-    // Set up forge buffer with proper bounds
-    uint8_t *buffer = (uint8_t*)seq + sizeof(LV2_Atom_Sequence);
-    size_t buffer_size = plugin->atom_buffer_size - sizeof(LV2_Atom_Sequence);
-    
-    // Ensure we have enough space for the message
-    size_t required_size = 128 + strlen(file_path) + 64; // Conservative estimate
-    if (buffer_size < required_size) {
-        g_print("Insufficient buffer space: have %u, need ~%u\n", (unsigned int)buffer_size, (unsigned int)required_size);
-        return;
-    }
-    
-    lv2_atom_forge_set_buffer(&forge, buffer, buffer_size);
-    
-    // Build the Atom message
-    LV2_Atom_Forge_Frame frame;
-    if (lv2_atom_forge_sequence_head(&forge, &frame, 0) == 0) {
-        g_print("Failed to forge sequence head\n");
-        if (was_active) {
-            plugin->active = TRUE;
-        }
-        return;
-    }
-    
-    // Create patch:Set object with the file path
-    LV2_Atom_Forge_Frame object_frame;
-    if (lv2_atom_forge_object(&forge, &object_frame, 0, plugin->patch_Set) == 0) {
-        g_print("Failed to forge patch:Set object\n");
-        if (was_active) {
-            plugin->active = TRUE;
-        }
-        return;
-    }
-    
-    // Add patch:property with the parameter URID
-    if (lv2_atom_forge_key(&forge, plugin->patch_property) == 0 ||
-        lv2_atom_forge_urid(&forge, parameter_urid) == 0) {
-        g_print("Failed to forge property key/value: property=%u, param=%u\n", 
-                plugin->patch_property, parameter_urid);
-        if (was_active) {
-            plugin->active = TRUE;
-        }
-        return;
-    }
-    
-    // Add patch:value with the file path as atom:Path
-    if (lv2_atom_forge_key(&forge, plugin->patch_value) == 0 ||
-        lv2_atom_forge_path(&forge, file_path, strlen(file_path)) == 0) {
-        g_print("Failed to forge value key/path\n");
-        if (was_active) {
-            plugin->active = TRUE;
-        }
-        return;
-    }
-    
-    lv2_atom_forge_pop(&forge, &object_frame);
-    lv2_atom_forge_pop(&forge, &frame);
-    
-    // Update sequence size with bounds check
-    size_t new_size = sizeof(LV2_Atom_Sequence_Body) + forge.offset;
-    if (new_size > plugin->atom_buffer_size) {
-        g_print("Atom message too large: %u > %u\n", (unsigned int)new_size, (unsigned int)plugin->atom_buffer_size);
-        // Reset to empty sequence
-        seq->atom.size = sizeof(LV2_Atom_Sequence_Body);
-        // Reactivate plugin if it was active before
-        if (was_active) {
-            plugin->active = TRUE;
-        }
-        return;
-    }
-    
-    seq->atom.size = (uint32_t)new_size;
-    
-    // Connect the atom port if not already connected
-    if (plugin->instance && plugin->atom_input_port_indices[0] != UINT32_MAX) {
-        alog(INFO, "[%s] Connecting atom port %u", plugin->name, plugin->atom_input_port_indices[0]);
-        lilv_instance_connect_port(plugin->instance, plugin->atom_input_port_indices[0], seq);
-    }
-    
-    // Log the message we're sending
-    g_print("Sent file path to %s: %s (sequence size: %u, forge offset: %u)\n", 
-           plugin->name, file_path, (unsigned int)seq->atom.size, (unsigned int)forge.offset);
-    
-    g_print("Neural model loaded: %s\n", file_path);
-    
-    // Reactivate plugin if it was active
-    if (was_active) {
-        plugin->active = TRUE;
-    }
+    ariel_log(INFO, "Queued file parameter for plugin %s: %s", plugin->name, file_path);
+    g_print("Neural model will be loaded: %s\n", file_path);
 }
 
 // Send file path to plugin via Atom message (backward compatibility)
@@ -1125,4 +1016,68 @@ ariel_active_plugin_process_worker_responses(ArielActivePlugin *plugin)
         }
     }
     g_mutex_unlock(&worker->response_mutex);
+}
+
+// Process UI messages in audio thread (jalv-style communication)
+void
+ariel_active_plugin_process_ui_messages(ArielActivePlugin *plugin)
+{
+    if (!plugin || !plugin->ui_messages || plugin->n_atom_inputs == 0) {
+        return;
+    }
+    
+    ArielUIMessage *msg;
+    
+    // Process all queued UI messages
+    while ((msg = g_async_queue_try_pop(plugin->ui_messages)) != NULL) {
+        // Create patch:Set message in Atom input buffer
+        if (plugin->atom_input_buffers && plugin->atom_input_buffers[0]) {
+            LV2_Atom_Sequence *seq = (LV2_Atom_Sequence*)plugin->atom_input_buffers[0];
+            
+            // Reset sequence
+            seq->atom.type = plugin->atom_Sequence;
+            seq->atom.size = sizeof(LV2_Atom_Sequence_Body);
+            seq->body.unit = 0;
+            seq->body.pad = 0;
+            
+            // Create Atom forge for message
+            LV2_Atom_Forge forge;
+            lv2_atom_forge_init(&forge, plugin->urid_map);
+            
+            uint8_t *buffer = (uint8_t*)seq + sizeof(LV2_Atom_Sequence);
+            size_t buffer_size = plugin->atom_buffer_size - sizeof(LV2_Atom_Sequence);
+            lv2_atom_forge_set_buffer(&forge, buffer, buffer_size);
+            
+            // Build patch:Set message
+            LV2_Atom_Forge_Frame frame;
+            if (lv2_atom_forge_sequence_head(&forge, &frame, 0)) {
+                LV2_Atom_Forge_Frame object_frame;
+                if (lv2_atom_forge_object(&forge, &object_frame, 0, plugin->patch_Set)) {
+                    // Add property
+                    if (lv2_atom_forge_key(&forge, plugin->patch_property) &&
+                        lv2_atom_forge_urid(&forge, msg->property)) {
+                        // Add value
+                        if (lv2_atom_forge_key(&forge, plugin->patch_value)) {
+                            if (msg->type == plugin->atom_Path) {
+                                lv2_atom_forge_path(&forge, msg->data, msg->size - 1);
+                            } else {
+                                lv2_atom_forge_atom(&forge, msg->size, msg->type);
+                                lv2_atom_forge_write(&forge, msg->data, msg->size);
+                            }
+                        }
+                    }
+                    lv2_atom_forge_pop(&forge, &object_frame);
+                }
+                lv2_atom_forge_pop(&forge, &frame);
+                
+                // Update sequence size
+                seq->atom.size = sizeof(LV2_Atom_Sequence_Body) + forge.offset;
+                
+                ariel_log(INFO, "Processed UI message for plugin %s: property=%u, type=%u, size=%u",
+                          plugin->name, msg->property, msg->type, msg->size);
+            }
+        }
+        
+        g_free(msg);
+    }
 }

@@ -23,6 +23,7 @@ inc = include_directories('include')
 # Source files
 sources = [
   'src/main.c',
+  'src/ariel_log.c',
   'src/ui/window.c',
   'src/ui/plugin_list.c',
   'src/ui/mixer.c',

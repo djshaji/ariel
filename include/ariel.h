@@ -15,6 +15,9 @@
 #include <lv2/patch/patch.h>
 #include <lv2/worker/worker.h>
 
+// Ariel logging system
+#include "ariel_log.h"
+
 #define ARIEL_APP_ID "com.github.djshaji.ariel"
 #define APP "Ariel"
 

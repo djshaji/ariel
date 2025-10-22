@@ -18,7 +18,7 @@ on_parameter_changed(GtkRange *range, ParameterControlData *data)
     double value = gtk_range_get_value(range);
     ariel_active_plugin_set_parameter(data->plugin, data->param_index, (float)value);
     
-    g_print("Parameter %u changed to %.3f\n", data->param_index, value);
+    ariel_log(INFO, "Parameter %u changed to %.3f", data->param_index, value);
 }
 
 // Callback for toggle button changes
@@ -34,7 +34,7 @@ on_toggle_changed(GtkToggleButton *button, ParameterControlData *data)
     // Update button label
     gtk_button_set_label(GTK_BUTTON(button), active ? "On" : "Off");
     
-    g_print("Toggle parameter %u changed to %s\n", data->param_index, active ? "ON" : "OFF");
+    ariel_log(INFO, "Toggle parameter %u changed to %s", data->param_index, active ? "ON" : "OFF");
 }
 
 
@@ -128,13 +128,13 @@ on_file_dialog_open_finish(GObject *source, GAsyncResult *result, gpointer user_
     if (file) {
         char *file_path = g_file_get_path(file);
         if (file_path) {
-            g_print("Selected neural model file: %s\n", file_path);
+            ariel_log(INFO, "Selected neural model file: %s", file_path);
             
             // Validate file extension
             if (g_str_has_suffix(file_path, ".nam") || g_str_has_suffix(file_path, ".nammodel")) {
                 // Double-check plugin validity before sending file parameter
                 if (ariel_active_plugin_supports_file_parameters(data->plugin) && data->parameter_uri) {
-                    g_print("Sending file parameter to plugin: %s (URI: %s)\n", file_path, data->parameter_uri);
+                    ariel_log(INFO, "Sending file parameter to plugin: %s (URI: %s)", file_path, data->parameter_uri);
                     // Send file path to plugin via Atom message
                     ariel_active_plugin_set_file_parameter_with_uri(data->plugin, file_path, data->parameter_uri);
                 } else {
@@ -527,7 +527,7 @@ create_file_parameter_control(ArielActivePlugin *plugin, const LilvPlugin *lilv_
     
     gtk_box_append(GTK_BOX(param_box), control_widget);
     
-    g_print("Created file chooser button for Atom control port: %s\n", label);
+    ariel_log(INFO, "Created file chooser button for Atom control port: %s", label);
     
     g_free(label);
     return param_box;

@@ -839,20 +839,20 @@ void
 ariel_active_plugin_set_file_parameter_with_uri(ArielActivePlugin *plugin, const char *file_path, const char *parameter_uri)
 {
     if (!plugin || !file_path || !parameter_uri || plugin->n_atom_inputs == 0) {
-        g_print("Cannot send file parameter: plugin=%p, file_path=%s, parameter_uri=%s, atom_inputs=%u\n", 
+        ariel_log(ERROR, "Cannot send file parameter: plugin=%p, file_path=%s, parameter_uri=%s, atom_inputs=%u", 
                 (void*)plugin, file_path, parameter_uri, plugin ? plugin->n_atom_inputs : 0);
         return;
     }
     
     if (!plugin->urid_map) {
-        g_print("No URID map available for Atom messaging\n");
+        ariel_log(ERROR, "No URID map available for Atom messaging");
         return;
     }
     
     // Map the parameter URI to a URID
     LV2_URID parameter_urid = plugin->urid_map->map(plugin->urid_map->handle, parameter_uri);
     if (parameter_urid == 0) {
-        g_print("Failed to map parameter URI to URID: %s\n", parameter_uri);
+        ariel_log(WARN, "Failed to map parameter URI to URID: %s", parameter_uri);
         return;
     }
     

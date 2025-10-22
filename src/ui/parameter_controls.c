@@ -48,20 +48,32 @@ on_file_button_clicked(GtkButton *button, ParameterControlData *data)
 {
     if (!data || !data->plugin) return;
     
+    assert(data->control_widget != NULL);
+    g_info ("File chooser button clicked for parameter index %u", data->param_index);
+
     // Create modern GTK4 file dialog
     GtkFileDialog *dialog = gtk_file_dialog_new();
-    gtk_file_dialog_set_title(dialog, "Select Neural Amp Model");
+    gtk_file_dialog_set_title(dialog, "Select Audio or Model File");
     
-    // Set up file filters for neural amp models
+    // Set up file filters for audio and model files
     GListStore *filters = g_list_store_new(GTK_TYPE_FILE_FILTER);
     
-    // Neural model files filter
-    GtkFileFilter *nam_filter = gtk_file_filter_new();
-    gtk_file_filter_set_name(nam_filter, "Neural Amp Models (*.nam, *.nammodel)");
-    gtk_file_filter_add_pattern(nam_filter, "*.nam");
-    gtk_file_filter_add_pattern(nam_filter, "*.nammodel");
-    g_list_store_append(filters, nam_filter);
-    g_object_unref(nam_filter);
+    // Audio & Model files filter (supports multiple formats)
+    GtkFileFilter *audio_model_filter = gtk_file_filter_new();
+    gtk_file_filter_set_name(audio_model_filter, "Audio & Model Files (*.nam, *.wav, *.ir, *.json, etc.)");
+    // Neural model formats
+    gtk_file_filter_add_pattern(audio_model_filter, "*.nam");
+    gtk_file_filter_add_pattern(audio_model_filter, "*.nammodel");
+    gtk_file_filter_add_pattern(audio_model_filter, "*.aidadspmodel");
+    gtk_file_filter_add_pattern(audio_model_filter, "*.aidiax");
+    gtk_file_filter_add_pattern(audio_model_filter, "*.json");
+    // Audio/IR formats
+    gtk_file_filter_add_pattern(audio_model_filter, "*.wav");
+    gtk_file_filter_add_pattern(audio_model_filter, "*.ir");
+    gtk_file_filter_add_pattern(audio_model_filter, "*.cabsim");
+    gtk_file_filter_add_pattern(audio_model_filter, "*.audio");
+    g_list_store_append(filters, audio_model_filter);
+    g_object_unref(audio_model_filter);
     
     // All files filter as backup
     GtkFileFilter *all_filter = gtk_file_filter_new();
@@ -71,7 +83,7 @@ on_file_button_clicked(GtkButton *button, ParameterControlData *data)
     g_object_unref(all_filter);
     
     gtk_file_dialog_set_filters(dialog, G_LIST_MODEL(filters));
-    gtk_file_dialog_set_default_filter(dialog, nam_filter);
+    gtk_file_dialog_set_default_filter(dialog, audio_model_filter);
     if (filters) g_object_unref(filters);
     
     // Set initial directory to user's home
@@ -85,7 +97,7 @@ on_file_button_clicked(GtkButton *button, ParameterControlData *data)
     // Get the parent window for the dialog
     GtkRoot *root = gtk_widget_get_root(GTK_WIDGET(button));
     GtkWindow *parent_window = GTK_IS_WINDOW(root) ? GTK_WINDOW(root) : NULL;
-    
+
     // Show async file dialog
     gtk_file_dialog_open(dialog, parent_window, NULL, 
                         on_file_dialog_open_finish, data);
@@ -128,10 +140,14 @@ on_file_dialog_open_finish(GObject *source, GAsyncResult *result, gpointer user_
     if (file) {
         char *file_path = g_file_get_path(file);
         if (file_path) {
-            ariel_log(INFO, "Selected neural model file: %s", file_path);
+            ariel_log(INFO, "Selected audio/model file: %s", file_path);
             
-            // Validate file extension
-            if (g_str_has_suffix(file_path, ".nam") || g_str_has_suffix(file_path, ".nammodel")) {
+            // Validate file extension (accept all supported audio and model formats)
+            if (g_str_has_suffix(file_path, ".nam") || g_str_has_suffix(file_path, ".nammodel") ||
+                g_str_has_suffix(file_path, ".wav") || g_str_has_suffix(file_path, ".ir") ||
+                g_str_has_suffix(file_path, ".json") || g_str_has_suffix(file_path, ".aidadspmodel") ||
+                g_str_has_suffix(file_path, ".aidiax") || g_str_has_suffix(file_path, ".cabsim") ||
+                g_str_has_suffix(file_path, ".audio")) {
                 // Double-check plugin validity before sending file parameter
                 if (ariel_active_plugin_supports_file_parameters(data->plugin) && data->parameter_uri) {
                     ariel_log(INFO, "Sending file parameter to plugin: %s (URI: %s)", file_path, data->parameter_uri);
@@ -152,9 +168,9 @@ on_file_dialog_open_finish(GObject *source, GAsyncResult *result, gpointer user_
                 g_free(basename);
                 g_free(label);
                 
-                g_print("Neural model loaded: %s\n", file_path);
+                g_print("Audio/model file loaded: %s\n", file_path);
             } else {
-                g_warning("Invalid file type selected: %s. Please select a .nam or .nammodel file.", file_path);
+                g_warning("Invalid file type selected: %s. Please select a supported audio or model file (.nam, .wav, .ir, .json, etc.).", file_path);
                 
                 // Show error dialog
                 GtkRoot *root = gtk_widget_get_root(data->control_widget);
@@ -386,7 +402,9 @@ create_parameter_control(ArielActivePlugin *plugin, uint32_t param_index)
         gtk_widget_add_css_class(control_widget, "suggested-action");
         
         data->control_widget = control_widget;
-        
+        assert(data->control_widget != NULL);
+        g_info ("Creating file chooser button for parameter index %u", param_index);
+
         // File chooser callback for loading neural models
         g_signal_connect_data(control_widget, "clicked",
                              G_CALLBACK(on_file_button_clicked), data,
@@ -443,7 +461,78 @@ create_parameter_control(ArielActivePlugin *plugin, uint32_t param_index)
     return param_box;
 }
 
-// Create file parameter control for Atom control ports
+// Forward declaration
+static GtkWidget *create_file_parameter_control_with_uri(ArielActivePlugin *plugin, const LilvPlugin *lilv_plugin, const LilvNode *parameter_node);
+
+// Create file parameter control for a specific parameter URI
+static GtkWidget *
+create_file_parameter_control_with_uri(ArielActivePlugin *plugin, const LilvPlugin *lilv_plugin, const LilvNode *parameter_node)
+{
+    // Get parameter info
+    char *parameter_uri = g_strdup(lilv_node_as_uri(parameter_node));
+    
+    // Get parameter label from RDF data
+    ArielApp *app = ARIEL_APP(g_application_get_default());
+    ArielPluginManager *manager = ariel_app_get_plugin_manager(app);
+    
+    char *label = NULL;
+    if (manager && manager->world) {
+        LilvNode *rdfs_label = lilv_new_uri(manager->world, "http://www.w3.org/2000/01/rdf-schema#label");
+        LilvNodes *labels = lilv_world_find_nodes(manager->world, parameter_node, rdfs_label, NULL);
+        if (labels) {
+            const LilvNode *label_node = lilv_nodes_get_first(labels);
+            if (label_node) {
+                label = g_strdup(lilv_node_as_string(label_node));
+            }
+            lilv_nodes_free(labels);
+        }
+        lilv_node_free(rdfs_label);
+    }
+    
+    if (!label) {
+        label = g_strdup("File Parameter");
+    }
+    
+    ariel_log(INFO, "Creating file control for parameter [%s] (URI: %s)", label, parameter_uri);
+    
+    // Create main container
+    GtkWidget *param_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+    gtk_widget_set_margin_start(param_box, 8);
+    gtk_widget_set_margin_end(param_box, 8);
+    gtk_widget_set_margin_top(param_box, 4);
+    gtk_widget_set_margin_bottom(param_box, 4);
+    
+    // Create label
+    GtkWidget *param_label = gtk_label_new(label);
+    gtk_widget_add_css_class(param_label, "caption");
+    gtk_label_set_xalign(GTK_LABEL(param_label), 0.0);
+    gtk_box_append(GTK_BOX(param_box), param_label);
+    
+    // Create file chooser button
+    GtkWidget *file_button = gtk_button_new_with_label("Choose File...");
+    gtk_widget_add_css_class(file_button, "suggested-action");
+    
+    // Create data structure for callback
+    ParameterControlData *data = g_malloc0(sizeof(ParameterControlData));
+    data->plugin = plugin;
+    data->parameter_uri = parameter_uri; // Will be freed in callback
+    
+    // Connect signal
+    g_signal_connect_data(file_button, "clicked", 
+                         G_CALLBACK(on_file_button_clicked), 
+                         data, 
+                         (GClosureNotify)g_free, 
+                         0);
+    
+    gtk_box_append(GTK_BOX(param_box), file_button);
+    
+    ariel_log(INFO, "Created file chooser button for parameter: %s", label);
+    
+    g_free(label);
+    return param_box;
+}
+
+// Create file parameter control for Atom control ports (legacy function)
 static GtkWidget *
 create_file_parameter_control(ArielActivePlugin *plugin, const LilvPlugin *lilv_plugin, const LilvPort *port)
 {
@@ -600,18 +689,44 @@ ariel_create_parameter_controls(ArielActivePlugin *plugin)
         GtkWidget *separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
         gtk_box_append(GTK_BOX(params_box), separator);
         
-        // First, add Atom control ports with file parameters
+        // First, add file parameter controls for all atom:Path parameters
         if (has_file_params) {
-            for (uint32_t i = 0; i < lilv_plugin_get_num_ports(lilv_plugin); i++) {
-                const LilvPort *port = lilv_plugin_get_port_by_index(lilv_plugin, i);
-                ariel_log(INFO, "[%s] Checking port %u for file parameter...", lilv_node_as_string(lilv_plugin_get_name(lilv_plugin)), i);
-                if (is_plugin_parameter_path(lilv_plugin, port)) {
-                    ariel_log(INFO, "[%s] Creating file parameter control for port %u", lilv_node_as_string(lilv_plugin_get_name(lilv_plugin)), i);
-                    GtkWidget *file_control = create_file_parameter_control(plugin, lilv_plugin, port);
-                    if (file_control) {
-                        gtk_box_append(GTK_BOX(params_box), file_control);
+            // Find all patch:writable parameters with atom:Path range
+            ArielApp *app = ARIEL_APP(g_application_get_default());
+            ArielPluginManager *manager = ariel_app_get_plugin_manager(app);
+            
+            if (manager && manager->world) {
+                const LilvNode *plugin_uri = lilv_plugin_get_uri(lilv_plugin);
+                LilvNode *patch_writable = lilv_new_uri(manager->world, LV2_PATCH__writable);
+                LilvNode *rdfs_range = lilv_new_uri(manager->world, "http://www.w3.org/2000/01/rdf-schema#range");
+                LilvNode *atom_path = lilv_new_uri(manager->world, LV2_ATOM__Path);
+                
+                // Find all parameters with atom:Path range
+                LilvNodes *writables = lilv_world_find_nodes(manager->world, plugin_uri, patch_writable, NULL);
+                if (writables) {
+                    LILV_FOREACH(nodes, i, writables) {
+                        const LilvNode *writable = lilv_nodes_get(writables, i);
+                        LilvNodes *ranges = lilv_world_find_nodes(manager->world, writable, rdfs_range, NULL);
+                        if (ranges) {
+                            LILV_FOREACH(nodes, j, ranges) {
+                                const LilvNode *range = lilv_nodes_get(ranges, j);
+                                if (lilv_node_equals(range, atom_path)) {
+                                    // Create file control for this specific parameter
+                                    GtkWidget *file_control = create_file_parameter_control_with_uri(plugin, lilv_plugin, writable);
+                                    if (file_control) {
+                                        gtk_box_append(GTK_BOX(params_box), file_control);
+                                    }
+                                }
+                            }
+                            lilv_nodes_free(ranges);
+                        }
                     }
+                    lilv_nodes_free(writables);
                 }
+                
+                lilv_node_free(patch_writable);
+                lilv_node_free(rdfs_range);
+                lilv_node_free(atom_path);
             }
             
             if (num_params > 0) {

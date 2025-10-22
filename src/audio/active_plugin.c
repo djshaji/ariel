@@ -62,6 +62,9 @@ struct _ArielActivePlugin {
     
     // UI communication
     GAsyncQueue *ui_messages;
+    
+    // Atom message state tracking
+    gint atom_message_cycles;
 };
 
 // UI message structure for thread-safe communication
@@ -165,6 +168,7 @@ ariel_active_plugin_init(ArielActivePlugin *plugin)
     plugin->atom_output_buffers = NULL;
     plugin->engine = NULL;
     plugin->ui_messages = g_async_queue_new();
+    plugin->atom_message_cycles = 0;
 }
 
 ArielActivePlugin *
@@ -1073,7 +1077,8 @@ ariel_active_plugin_process_ui_messages(ArielActivePlugin *plugin)
                 // Update sequence size
                 seq->atom.size = sizeof(LV2_Atom_Sequence_Body) + forge.offset;
                 
-
+                // Mark that we sent a message, will clear after a few cycles
+                plugin->atom_message_cycles = 3; // Clear after 3 processing cycles
                 
                 ariel_log(INFO, "Processed UI message for plugin %s: property=%u, type=%u, size=%u",
                           plugin->name, msg->property, msg->type, msg->size);
@@ -1081,5 +1086,26 @@ ariel_active_plugin_process_ui_messages(ArielActivePlugin *plugin)
         }
         
         g_free(msg);
+    }
+    
+    // Handle clearing of atom input buffer after plugin has processed the message
+    if (plugin->atom_message_cycles > 0) {
+        plugin->atom_message_cycles--;
+        
+        // After the delay period, clear the buffer to prevent repeated processing
+        if (plugin->atom_message_cycles == 0 && 
+            plugin->atom_input_buffers && 
+            plugin->atom_input_buffers[0]) {
+            
+            LV2_Atom_Sequence *seq = (LV2_Atom_Sequence*)plugin->atom_input_buffers[0];
+            
+            // Reset to empty sequence
+            seq->atom.type = plugin->atom_Sequence;
+            seq->atom.size = sizeof(LV2_Atom_Sequence_Body);
+            seq->body.unit = 0;
+            seq->body.pad = 0;
+            
+            ariel_log(INFO, "Cleared atom input buffer for plugin %s after processing delay", plugin->name);
+        }
     }
 }

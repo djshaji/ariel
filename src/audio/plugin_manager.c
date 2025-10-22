@@ -90,21 +90,67 @@ ariel_worker_thread_func(gpointer data, gpointer user_data)
     ArielWorkerSchedule *worker = (ArielWorkerSchedule *)user_data;
     
     if (!work || !work->plugin) {
+        if (work) {
+            g_free(work->data);
+            g_free(work);
+        }
+        return;
+    }
+    
+    ariel_log(INFO, "Processing worker task: %u bytes", work->size);
+    
+    // Get plugin's LV2 instance and work interface
+    const LilvPlugin *lilv_plugin = ariel_active_plugin_get_lilv_plugin(work->plugin);
+    if (!lilv_plugin) {
+        g_free(work->data);
         g_free(work);
         return;
     }
     
-    // In a full implementation, this would call the plugin's work interface
-    // For now, we'll just simulate work processing
-    // Processing worker task silently
+    // Check if plugin has work interface
+    if (!ariel_active_plugin_has_work_interface(work->plugin)) {
+        ariel_log(WARN, "Plugin does not provide work interface, simulating work");
+        
+        // Simulate some work for plugins without work interface
+        g_usleep(1000); // 1ms of simulated work
+        
+        // Send response back to plugin
+        ariel_worker_respond(work->plugin, work->size, work->data);
+    } else {
+        // Get the LV2 instance
+        LilvInstance *instance = ariel_active_plugin_get_instance(work->plugin);
+        if (!instance) {
+            ariel_log(ERROR, "Cannot get LV2 instance for worker task");
+            g_free(work->data);
+            g_free(work);
+            return;
+        }
+        
+        const LV2_Worker_Interface *work_iface = 
+            (const LV2_Worker_Interface*)lilv_instance_get_extension_data(instance, LV2_WORKER__interface);
+        
+        if (work_iface && work_iface->work) {
+            // Call plugin's work method
+            LV2_Worker_Status status = work_iface->work(
+                lilv_instance_get_handle(instance),
+                ariel_worker_respond_callback,  // response callback
+                work->plugin,                   // handle for response callback
+                work->size,
+                work->data);
+            
+            if (status != LV2_WORKER_SUCCESS) {
+                ariel_log(WARN, "Plugin work method failed with status: %d", status);
+            } else {
+                ariel_log(INFO, "Plugin work method executed successfully");
+            }
+        } else {
+            ariel_log(WARN, "Plugin work interface is NULL");
+            // Fallback: send response directly
+            ariel_worker_respond(work->plugin, work->size, work->data);
+        }
+    }
     
-    // Simulate some work
-    g_usleep(1000); // 1ms of work
-    
-    // Send response back to plugin (placeholder)
-    ariel_worker_respond(work->plugin, work->size, work->data);
-    
-    // Cleanup
+    // Cleanup (data will be cleaned up in response processing)
     g_free(work->data);
     g_free(work);
 }
@@ -124,6 +170,8 @@ ariel_worker_schedule_new(void)
     
     g_mutex_init(&worker->work_mutex);
     worker->work_queue = g_queue_new();
+    g_mutex_init(&worker->response_mutex);
+    worker->response_queue = g_queue_new();
     
     g_print("Created LV2 worker schedule with thread pool\n");
     return worker;
@@ -150,7 +198,18 @@ ariel_worker_schedule_free(ArielWorkerSchedule *worker)
         g_queue_free(worker->work_queue);
     }
     
+    // Clear response queue
+    if (worker->response_queue) {
+        ArielWorkerResponse *response;
+        while ((response = g_queue_pop_head(worker->response_queue)) != NULL) {
+            g_free(response->data);
+            g_free(response);
+        }
+        g_queue_free(worker->response_queue);
+    }
+    
     g_mutex_clear(&worker->work_mutex);
+    g_mutex_clear(&worker->response_mutex);
     g_free(worker);
 }
 
@@ -190,9 +249,74 @@ ariel_worker_respond(ArielActivePlugin *plugin, uint32_t size, const void *data)
 {
     if (!plugin) return;
     
-    // In a full implementation, this would call the plugin's work_response interface
-    // through a safe mechanism (like a lock-free queue to the audio thread)
-    // Worker response handled silently
+    // Get the plugin manager to access worker schedule
+    ArielApp *app = ARIEL_APP(g_application_get_default());
+    ArielPluginManager *manager = ariel_app_get_plugin_manager(app);
+    if (!manager || !manager->worker_schedule) return;
+    
+    ArielWorkerSchedule *worker = manager->worker_schedule;
+    
+    // Create response item
+    ArielWorkerResponse *response = g_malloc0(sizeof(ArielWorkerResponse));
+    response->plugin = plugin;
+    response->size = size;
+    response->data = g_malloc(size);
+    memcpy(response->data, data, size);
+    
+    // Add to response queue (thread-safe)
+    g_mutex_lock(&worker->response_mutex);
+    g_queue_push_tail(worker->response_queue, response);
+    g_mutex_unlock(&worker->response_mutex);
+    
+    ariel_log(INFO, "Worker response queued for plugin: %zu bytes", size);
+}
+
+// LV2-compatible worker response callback (called from worker thread)
+LV2_Worker_Status
+ariel_worker_respond_callback(LV2_Worker_Respond_Handle handle, uint32_t size, const void *data)
+{
+    ArielActivePlugin *plugin = (ArielActivePlugin *)handle;
+    if (!plugin || !data) return LV2_WORKER_ERR_UNKNOWN;
+    
+    ariel_worker_respond(plugin, size, data);
+    return LV2_WORKER_SUCCESS;
+}
+
+// Process worker responses (called from audio thread)
+void
+ariel_worker_process_responses(ArielWorkerSchedule *worker)
+{
+    if (!worker || !worker->response_queue) return;
+    
+    ArielWorkerResponse *response;
+    
+    // Process all pending responses
+    g_mutex_lock(&worker->response_mutex);
+    while ((response = g_queue_pop_head(worker->response_queue)) != NULL) {
+        g_mutex_unlock(&worker->response_mutex);
+        
+        // Call plugin's work_response if available
+        if (response->plugin) {
+            ariel_active_plugin_process_worker_responses(response->plugin);
+            
+            // Get plugin's LV2 instance and call work_response if available
+            const LilvPlugin *lilv_plugin = ariel_active_plugin_get_lilv_plugin(response->plugin);
+            if (lilv_plugin) {
+                // In a full implementation, we would:
+                // 1. Get the plugin's work interface from extension_data
+                // 2. Call the work_response method with the response data
+                // For now, we'll log the response processing
+                ariel_log(INFO, "Processing worker response: %u bytes for plugin", response->size);
+            }
+        }
+        
+        // Cleanup response
+        g_free(response->data);
+        g_free(response);
+        
+        g_mutex_lock(&worker->response_mutex);
+    }
+    g_mutex_unlock(&worker->response_mutex);
 }
 
 // LV2 State interface implementation

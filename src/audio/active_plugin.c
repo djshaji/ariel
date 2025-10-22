@@ -1035,3 +1035,94 @@ ariel_active_plugin_supports_file_parameters(ArielActivePlugin *plugin)
             plugin->patch_property != 0 &&
             plugin->patch_value != 0);
 }
+
+// Worker Interface Implementation
+
+// Get LV2 instance from active plugin
+LilvInstance *
+ariel_active_plugin_get_instance(ArielActivePlugin *plugin)
+{
+    if (!plugin) return NULL;
+    return plugin->instance;
+}
+
+// Check if plugin has work interface
+gboolean
+ariel_active_plugin_has_work_interface(ArielActivePlugin *plugin)
+{
+    if (!plugin || !plugin->instance) return FALSE;
+    
+    const LV2_Worker_Interface *work_iface = 
+        (const LV2_Worker_Interface*)lilv_instance_get_extension_data(plugin->instance, LV2_WORKER__interface);
+    
+    return (work_iface != NULL && work_iface->work != NULL);
+}
+
+// Process worker responses for this plugin
+void
+ariel_active_plugin_process_worker_responses(ArielActivePlugin *plugin)
+{
+    if (!plugin || !plugin->instance) return;
+    
+    // Get the worker interface from plugin
+    const LV2_Worker_Interface *work_iface = 
+        (const LV2_Worker_Interface*)lilv_instance_get_extension_data(plugin->instance, LV2_WORKER__interface);
+    
+    if (!work_iface || !work_iface->work_response) {
+        ariel_log(WARN, "Plugin %s does not provide work_response interface", 
+                  plugin->name ? plugin->name : "Unknown");
+        return;
+    }
+    
+    // Get plugin manager to access response queue
+    ArielApp *app = ARIEL_APP(g_application_get_default());
+    ArielPluginManager *manager = ariel_app_get_plugin_manager(app);
+    if (!manager || !manager->worker_schedule) return;
+    
+    ArielWorkerSchedule *worker = manager->worker_schedule;
+    ArielWorkerResponse *response;
+    
+    // Process responses for this specific plugin
+    g_mutex_lock(&worker->response_mutex);
+    GList *current = worker->response_queue->head;
+    
+    while (current) {
+        response = (ArielWorkerResponse*)current->data;
+        GList *next = current->next;
+        
+        // Check if this response is for our plugin
+        if (response->plugin == plugin) {
+            // Remove from queue
+            g_queue_unlink(worker->response_queue, current);
+            
+            // Unlock mutex before calling plugin (avoid deadlock)
+            g_mutex_unlock(&worker->response_mutex);
+            
+            // Call plugin's work_response method
+            LV2_Worker_Status status = work_iface->work_response(
+                lilv_instance_get_handle(plugin->instance),
+                response->size,
+                response->data);
+            
+            if (status == LV2_WORKER_SUCCESS) {
+                ariel_log(INFO, "Worker response processed successfully for plugin %s", 
+                          plugin->name ? plugin->name : "Unknown");
+            } else {
+                ariel_log(WARN, "Worker response failed for plugin %s (status: %d)", 
+                          plugin->name ? plugin->name : "Unknown", status);
+            }
+            
+            // Cleanup response
+            g_free(response->data);
+            g_free(response);
+            g_list_free_1(current);
+            
+            // Re-lock mutex for next iteration
+            g_mutex_lock(&worker->response_mutex);
+            current = next;
+        } else {
+            current = next;
+        }
+    }
+    g_mutex_unlock(&worker->response_mutex);
+}

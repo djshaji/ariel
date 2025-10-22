@@ -16,6 +16,11 @@ ariel_jack_process_callback(jack_nframes_t nframes, void *arg)
     jack_default_audio_sample_t *output_R = 
         (jack_default_audio_sample_t *)jack_port_get_buffer(engine->output_ports[1], nframes);
     
+    // Process worker responses (must be done in audio thread context)
+    if (engine->plugin_manager && engine->plugin_manager->worker_schedule) {
+        ariel_worker_process_responses(engine->plugin_manager->worker_schedule);
+    }
+    
     // Process active plugins in chain
     if (engine->plugin_manager && engine->plugin_manager->active_plugin_store) {
         guint n_active = g_list_model_get_n_items(G_LIST_MODEL(engine->plugin_manager->active_plugin_store));

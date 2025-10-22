@@ -88,11 +88,20 @@ typedef struct {
     uint32_t next_id;
 } ArielURIDMap;
 
+// Worker response item structure
+typedef struct {
+    ArielActivePlugin *plugin;
+    uint32_t size;
+    void *data;
+} ArielWorkerResponse;
+
 // Worker schedule structure for LV2 worker feature
 typedef struct {
     GThreadPool *thread_pool;
     GMutex work_mutex;
     GQueue *work_queue;
+    GMutex response_mutex;
+    GQueue *response_queue;
     ArielActivePlugin *plugin;
 } ArielWorkerSchedule;
 
@@ -229,6 +238,13 @@ ArielWorkerSchedule *ariel_worker_schedule_new(void);
 void ariel_worker_schedule_free(ArielWorkerSchedule *worker);
 LV2_Worker_Status ariel_worker_schedule(LV2_Worker_Schedule_Handle handle, uint32_t size, const void *data);
 void ariel_worker_respond(ArielActivePlugin *plugin, uint32_t size, const void *data);
+LV2_Worker_Status ariel_worker_respond_callback(LV2_Worker_Respond_Handle handle, uint32_t size, const void *data);
+void ariel_worker_process_responses(ArielWorkerSchedule *worker);
+
+// Active Plugin Worker Interface
+void ariel_active_plugin_process_worker_responses(ArielActivePlugin *plugin);
+gboolean ariel_active_plugin_has_work_interface(ArielActivePlugin *plugin);
+LilvInstance *ariel_active_plugin_get_instance(ArielActivePlugin *plugin);
 
 // JACK callbacks
 int ariel_jack_process_callback(jack_nframes_t nframes, void *arg);

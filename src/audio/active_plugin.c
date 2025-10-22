@@ -1050,9 +1050,6 @@ ariel_active_plugin_process_ui_messages(ArielActivePlugin *plugin)
             size_t buffer_size = plugin->atom_buffer_size - sizeof(LV2_Atom_Sequence);
             lv2_atom_forge_set_buffer(&forge, buffer, buffer_size);
             
-            ariel_log(INFO, "Creating patch:Set message: property=%u, value='%s', size=%u", 
-                      msg->property, msg->data, msg->size);
-            
             // Build patch:Set message exactly like NAM plugin expects
             LV2_Atom_Forge_Frame frame;
             if (lv2_atom_forge_sequence_head(&forge, &frame, 0)) {
@@ -1076,8 +1073,7 @@ ariel_active_plugin_process_ui_messages(ArielActivePlugin *plugin)
                 // Update sequence size
                 seq->atom.size = sizeof(LV2_Atom_Sequence_Body) + forge.offset;
                 
-                ariel_log(INFO, "Created atom sequence: total_size=%u, forge_offset=%u", 
-                          seq->atom.size, (uint32_t)forge.offset);
+
                 
                 ariel_log(INFO, "Processed UI message for plugin %s: property=%u, type=%u, size=%u",
                           plugin->name, msg->property, msg->type, msg->size);

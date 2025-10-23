@@ -34,6 +34,14 @@
   --text-secondary: #dddddd;
   --text-muted: #bbbbbb;
 }
+window, scrolled-window, viewport, frame, paned, box {
+  background-color: var(--surface-1);
+  color: var(--text-primary);
+}
+
+button, label {
+  color: var(--text-primary);
+}
 
 /* Application Window */
 window {

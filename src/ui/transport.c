@@ -42,9 +42,12 @@ ariel_create_header_bar(ArielWindow *window)
     GtkWidget *menu_button;
     
     header_bar = gtk_header_bar_new();
+    GtkWidget *title_label = gtk_label_new(APP);
+    gtk_widget_add_css_class(GTK_WIDGET(title_label), "title-4");
+
     gtk_header_bar_set_title_widget(GTK_HEADER_BAR(header_bar),
-                                    gtk_label_new(APP));
-    
+                                    title_label);
+
     // Audio engine toggle button
     window->audio_toggle = gtk_toggle_button_new_with_label("Audio: OFF");
     gtk_header_bar_pack_start(GTK_HEADER_BAR(header_bar), window->audio_toggle);

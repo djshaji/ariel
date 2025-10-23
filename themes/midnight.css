@@ -3,41 +3,50 @@
  * Custom GTK4 CSS styling with midnight dark color scheme
  */
 
-/* Root color definitions - Midnight Palette */
+/* Root color definitions - Midnight Dark Palette */
 :root {
-  --pastel-pink: #eaeded;
-  --pastel-blue: #d5dbdb;
-  --pastel-green: #d0d3d4;
-  --pastel-purple: #e8ebec;
-  --pastel-yellow: #f4f6f6;
-  --pastel-orange: #e5e8e8;
-  --pastel-gray: #f8f9f9;
-  --pastel-lavender: #ebeeef;
+  --pastel-pink: #1b2631;
+  --pastel-blue: #2c3e50;
+  --pastel-green: #273746;
+  --pastel-purple: #212f3c;
+  --pastel-yellow: #1c2833;
+  --pastel-orange: #283747;
+  --pastel-gray: #34495e;
+  --pastel-lavender: #2c3e50;
   
-  /* Darker tones for text and borders */
-  --dark-pink: #1b2631;
-  --dark-blue: #2c3e50;
-  --dark-green: #273746;
-  --dark-purple: #212f3c;
-  --dark-yellow: #1c2833;
-  --dark-orange: #283747;
-  --dark-gray: #34495e;
-  --dark-lavender: #2c3e50;
+  /* Light tones for text and borders */
+  --dark-pink: #eaeded;
+  --dark-blue: #d5dbdb;
+  --dark-green: #d0d3d4;
+  --dark-purple: #e8ebec;
+  --dark-yellow: #f4f6f6;
+  --dark-orange: #e5e8e8;
+  --dark-gray: #f8f9f9;
+  --dark-lavender: #ebeeef;
   
-  /* Background colors */
-  --surface-1: #fefefe;
-  --surface-2: #fdfefe;
-  --surface-3: #fbfcfc;
+  /* Background colors - Dark */
+  --surface-1: #0c1117;
+  --surface-2: #1b2631;
+  --surface-3: #2c3e50;
   
-  /* Text colors */
-  --text-primary: #2d3436;
-  --text-secondary: #636e72;
-  --text-muted: #a0a6ab;
+  /* Text colors - Light */
+  --text-primary: #fefefe;
+  --text-secondary: #e8ebec;
+  --text-muted: #d5dbdb;
 }
 
 /* Application Window */
 window {
   background-color: var(--surface-1);
+  color: var(--text-primary);
+}
+
+window, scrolled-window, viewport, frame, paned, box {
+  background-color: var(--surface-1);
+  color: var(--text-primary);
+}
+
+button, label {
   color: var(--text-primary);
 }
 
@@ -101,43 +110,43 @@ window {
   padding: 8px 16px;
   font-weight: 500;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(44, 62, 80, 0.2);
+  box-shadow: 0 2px 4px rgba(213, 219, 219, 0.2);
 }
 
 .suggested-action:hover {
   background: linear-gradient(135deg, var(--dark-blue), var(--dark-gray));
-  color: white;
+  color: var(--surface-1);
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(44, 62, 80, 0.3);
+  box-shadow: 0 4px 8px rgba(213, 219, 219, 0.3);
 }
 
 .suggested-action:active {
   transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(44, 62, 80, 0.2);
+  box-shadow: 0 2px 4px rgba(213, 219, 219, 0.2);
 }
 
 /* Destructive Action Buttons - Delete/Remove actions */
 .destructive-action {
-  background: linear-gradient(135deg, #fdedec, #fadbd8);
-  color: #c0392b;
-  border: 1px solid #c0392b;
+  background: linear-gradient(135deg, var(--pastel-pink), #3e2723);
+  color: #ffcdd2;
+  border: 1px solid #ffcdd2;
   border-radius: 8px;
   padding: 8px 16px;
   font-weight: 500;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(192, 57, 43, 0.2);
+  box-shadow: 0 2px 4px rgba(255, 205, 210, 0.2);
 }
 
 .destructive-action:hover {
-  background: linear-gradient(135deg, #c0392b, #a93226);
-  color: white;
+  background: linear-gradient(135deg, #c62828, #d32f2f);
+  color: #ffffff;
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(192, 57, 43, 0.3);
+  box-shadow: 0 4px 8px rgba(255, 205, 210, 0.3);
 }
 
 .destructive-action:active {
   transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(192, 57, 43, 0.2);
+  box-shadow: 0 2px 4px rgba(255, 205, 210, 0.2);
 }
 
 /* Pill-shaped buttons */
@@ -162,14 +171,14 @@ window {
   border-radius: 12px;
   padding: 16px;
   margin: 8px;
-  box-shadow: 0 2px 8px rgba(44, 62, 80, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
   transition: all 0.2s ease;
 }
 
 .card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(44, 62, 80, 0.15);
-  border-color: var(--pastel-blue);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  border-color: var(--dark-blue);
 }
 
 /* Drop target for drag and drop */
@@ -186,7 +195,7 @@ window {
 .drop-target:hover {
   opacity: 1;
   background: linear-gradient(135deg, var(--dark-blue), var(--dark-gray));
-  color: white;
+  color: var(--surface-1);
   transform: scale(1.02);
 }
 
@@ -208,17 +217,17 @@ scale highlight {
 
 scale slider {
   background: linear-gradient(135deg, var(--dark-blue), var(--dark-gray));
-  border: 2px solid white;
+  border: 2px solid var(--text-primary);
   border-radius: 50%;
   min-width: 18px;
   min-height: 18px;
-  box-shadow: 0 2px 4px rgba(44, 62, 80, 0.2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
   transition: all 0.2s ease;
 }
 
 scale slider:hover {
   transform: scale(1.2);
-  box-shadow: 0 3px 6px rgba(44, 62, 80, 0.3);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.5);
 }
 
 /* Toggle Buttons */
@@ -235,12 +244,12 @@ togglebutton:checked {
   background: linear-gradient(135deg, var(--pastel-blue), var(--pastel-gray));
   color: var(--dark-blue);
   border-color: var(--dark-blue);
-  box-shadow: 0 2px 4px rgba(44, 62, 80, 0.2);
+  box-shadow: 0 2px 4px rgba(213, 219, 219, 0.2);
 }
 
 togglebutton:hover {
   transform: translateY(-1px);
-  box-shadow: 0 3px 6px rgba(44, 62, 80, 0.1);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
 }
 
 /* File Chooser Buttons */
@@ -313,16 +322,17 @@ listview row {
 }
 
 listview row:hover {
-  background: rgba(44, 62, 80, 0.1);
+  background: var(--surface-2);
 }
 
 listview row:selected {
-  background: rgba(44, 62, 80, 0.2);
+  background: linear-gradient(135deg, var(--pastel-blue), var(--pastel-gray));
   color: var(--dark-blue);
 }
 
 listview row:selected:hover {
-  background: rgba(44, 62, 80, 0.3);
+  background: linear-gradient(135deg, var(--dark-blue), var(--dark-gray));
+  color: var(--text-primary);
 }
 
 /* Paned containers */
@@ -341,7 +351,7 @@ headerbar {
   background: linear-gradient(135deg, var(--pastel-blue), var(--pastel-gray));
   color: var(--dark-blue);
   border-bottom: 1px solid var(--pastel-gray);
-  box-shadow: 0 2px 4px rgba(44, 62, 80, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 headerbar button {
@@ -351,7 +361,7 @@ headerbar button {
 }
 
 headerbar button:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(213, 219, 219, 0.2);
   border-color: var(--dark-blue);
 }
 
@@ -366,8 +376,8 @@ headerbar button:hover {
 }
 
 .status-offline {
-  color: #c0392b;
-  background: #fdedec;
+  color: #ffcdd2;
+  background: var(--pastel-pink);
   border-radius: 12px;
   padding: 4px 8px;
   font-size: 0.8em;
@@ -410,10 +420,10 @@ button:has(label:first-child) {
 /* High contrast mode support */
 @media (prefers-contrast: high) {
   :root {
-    --text-primary: #000000;
-    --text-secondary: #333333;
-    --surface-1: #ffffff;
-    --surface-2: #f0f0f0;
+    --text-primary: #ffffff;
+    --text-secondary: #cccccc;
+    --surface-1: #000000;
+    --surface-2: #1a1a1a;
   }
   
   .suggested-action,

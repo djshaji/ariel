@@ -648,6 +648,8 @@ ariel_create_parameter_controls(ArielActivePlugin *plugin)
     gtk_widget_set_vexpand(scrolled, TRUE);
     gtk_widget_set_hexpand(scrolled, TRUE);
     gtk_widget_set_size_request(scrolled, 200, 400);
+    // gtk_widget_set_margin_start(scrolled, 8);
+    // gtk_widget_set_margin_end(scrolled, 8);
     
     // Create container for all parameters
     GtkWidget *params_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);

@@ -40,6 +40,14 @@ window {
   background-color: var(--surface-1);
   color: var(--text-primary);
 }
+window, scrolled-window, viewport, frame, paned, box {
+  background-color: var(--surface-1);
+  color: var(--text-primary);
+}
+
+button, label {
+  color: var(--text-primary);
+}
 
 /* Headers and Titles */
 .title-1 {

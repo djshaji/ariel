@@ -12,7 +12,7 @@ BuildRequires:  gcc
 BuildRequires:  pkgconfig(gtk4) >= 4.0
 BuildRequires:  pkgconfig(lilv-0)
 BuildRequires:  desktop-file-utils
-
+BuildRequires:  pipewire-jack-audio-connection-kit-devel
 Requires:       gtk4 >= 4.0
 Requires:       lilv
 

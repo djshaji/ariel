@@ -94,15 +94,26 @@ ariel_load_custom_css(void)
     
     // Try to find the installed theme file
     const char *data_dirs[] = {
-        "/usr/share/ariel",
-        "/usr/local/share/ariel", 
-        "data",  // Development fallback
+        "/usr/share/ariel/themes",
+        "/usr/local/share/ariel/themes",        
+        "themes",  // Development fallback
         NULL
     };
     
     gboolean theme_loaded = FALSE;
+    char * custom_css_path = ariel_load_theme_preference();
+    if (custom_css_path == NULL) {
+        custom_css_path = g_strdup("ariel-theme");
+    }
+
+    char *tmp = g_strdup_printf("%s.css", custom_css_path);
+    g_free (custom_css_path);
+    custom_css_path = tmp;
+    
+    ARIEL_INFO ("Loading theme CSS: %s", custom_css_path);
+
     for (int i = 0; data_dirs[i] != NULL; i++) {
-        char *theme_path = g_build_filename(data_dirs[i], "ariel-theme.css", NULL);
+        char *theme_path = g_build_filename(data_dirs[i], custom_css_path, NULL);
         
         if (g_file_test(theme_path, G_FILE_TEST_EXISTS)) {
             // GTK4 API - no error parameter
@@ -124,6 +135,7 @@ ariel_load_custom_css(void)
         ARIEL_WARN("Default theme CSS file not found, using system theme");
     }
     
+    g_free (custom_css_path);
     g_object_unref(theme_provider);
     
     // Then, load custom user CSS if it exists

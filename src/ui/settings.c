@@ -175,11 +175,11 @@ ariel_apply_theme(const char *theme_name)
         current_theme_provider = NULL;
     }
     
-    if (g_strcmp0(theme_name, "default") == 0) {
-        // For default theme, don't load any custom CSS
-        g_print("Applied default theme\n");
-        return;
-    }
+    // if (g_strcmp0(theme_name, "default") == 0) {
+    //     // For default theme, don't load any custom CSS
+    //     g_print("Applied default theme\n");
+    //     return;
+    // }
     
     // Create new CSS provider for the theme
     current_theme_provider = gtk_css_provider_new();

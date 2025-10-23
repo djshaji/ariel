@@ -7,8 +7,11 @@ A cross-platform LV2 host built with GTK4 and lilv.
 - **Custom CSS theming** - Load custom styles from `~/.config/ariel/style.css` for personalized appearance
 - **Drag and drop support** for intuitive plugin loading 
 - **Parameter controls** with real-time adjustment for all plugin parameters
+- **File parameter support** - Load audio files, neural models, and impulse responses directly into plugins
+- **Multi-file parameter plugins** - Full support for plugins with multiple file parameters (like Ratatouille)
+- **Enhanced file dialogs** - Support for .wav, .nam, .ir, .json, and other audio/model formats
 - **Preset management** - Save and load individual plugin presets
-- **Chain presets** - Save and load entire plugin chains with all parameters
+- **Chain presets** - Save entire plugin chains with all parameters
 - **Plugin bypass** functionality for A/B testing
 - **Transport controls** - Play, stop, record with state management
 - **Auto-start audio engine** for immediate plugin processing
@@ -211,6 +214,9 @@ sudo ninja -C builddir uninstall
 
 3. **Plugin Parameters**
    - Control knobs and sliders appear automatically for each loaded plugin
+   - **File Parameters**: Click "Choose File..." buttons to load audio files, neural models, or impulse responses
+   - Supported formats: .wav, .nam, .nammodel, .ir, .json, .aidadspmodel, .aidiax, .cabsim
+   - Multi-file plugins (like Ratatouille) show separate controls for each file parameter
    - Adjust parameters in real-time while audio is playing
    - Parameters are saved with your session
 
@@ -254,6 +260,9 @@ Before using Ariel, ensure your audio setup is working:
 ### Plugin Types Supported
 
 - **Audio Effects**: Reverb, delay, distortion, EQ, compressors, etc.
+- **Neural Amp Modelers**: Neural Amp Modeler plugin with .nam/.nammodel file support
+- **Multi-parameter Plugins**: Ratatouille (4 file parameters), and other complex plugins
+- **IR Processors**: Impulse response plugins with .wav/.ir file loading
 - **Generators**: Synthesizers, oscillators, noise generators
 - **Analyzers**: Spectrum analyzers, meters, tuners
 - **MIDI Effects**: Note processors, arpegiators (MIDI support coming soon)

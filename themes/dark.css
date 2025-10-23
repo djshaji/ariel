@@ -1,0 +1,147 @@
+/* Ariel Dark Theme */
+/* A comprehensive dark theme for Ariel */
+
+/* Window and background colors */
+window {
+    background-color: #2b2b2b;
+    color: #e8e8e8;
+}
+
+headerbar {
+    background: linear-gradient(to bottom, #3c3c3c, #2b2b2b);
+    color: #e8e8e8;
+    border-bottom: 1px solid #1a1a1a;
+}
+
+/* Button styles */
+button {
+    background-color: #404040;
+    border-color: #555555;
+    color: #e8e8e8;
+}
+
+button:hover {
+    background-color: #4a4a4a;
+    border-color: #666666;
+}
+
+button.suggested-action {
+    background: linear-gradient(to bottom, #4a90e2, #357abd);
+    border-color: #2968a3;
+    color: white;
+}
+
+button.suggested-action:hover {
+    background: linear-gradient(to bottom, #5ba0f2, #4a90e2);
+}
+
+button.destructive-action {
+    background: linear-gradient(to bottom, #e74c3c, #c0392b);
+    border-color: #a93226;
+    color: white;
+}
+
+/* Plugin list and mixer styling */
+.plugin-list {
+    background-color: #353535;
+    border: 1px solid #555555;
+    color: #e8e8e8;
+}
+
+.plugin-item {
+    background-color: transparent;
+    color: #e8e8e8;
+}
+
+.plugin-item:selected {
+    background-color: rgba(74, 144, 226, 0.3);
+    color: #ffffff;
+}
+
+.plugin-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.mixer-channel {
+    background-color: #353535;
+    border: 1px solid #555555;
+}
+
+/* Scale (slider) styling */
+scale trough {
+    background-color: #2b2b2b;
+    border: 1px solid #555555;
+}
+
+scale highlight {
+    background-color: #4a90e2;
+}
+
+scale slider {
+    background-color: #e8e8e8;
+    border: 2px solid #4a90e2;
+}
+
+scale slider:hover {
+    background-color: #ffffff;
+}
+
+/* Entry and text styling */
+entry {
+    background-color: #404040;
+    border-color: #555555;
+    color: #e8e8e8;
+}
+
+entry:focus {
+    border-color: #4a90e2;
+    box-shadow: 0 0 3px rgba(74, 144, 226, 0.4);
+    background-color: #454545;
+}
+
+/* Progress bar */
+progressbar progress {
+    background-color: #4a90e2;
+}
+
+progressbar trough {
+    background-color: #2b2b2b;
+    border: 1px solid #555555;
+}
+
+/* Labels and text */
+label {
+    color: #e8e8e8;
+}
+
+/* Separators */
+separator {
+    background-color: #555555;
+}
+
+/* Paned widget */
+paned > separator {
+    background-color: #555555;
+    border: none;
+}
+
+/* Scrollbars */
+scrollbar {
+    background-color: #2b2b2b;
+}
+
+scrollbar slider {
+    background-color: #555555;
+    border-radius: 6px;
+}
+
+scrollbar slider:hover {
+    background-color: #666666;
+}
+
+/* Tooltip styling */
+tooltip {
+    background-color: #404040;
+    color: #e8e8e8;
+    border: 1px solid #666666;
+}

@@ -1,0 +1,80 @@
+/* Ariel Coral Theme */
+/* Primary color: #ff6f61 */
+
+/* Window and background colors */
+window {
+    background-color: #fffaf9;
+}
+
+headerbar {
+    background: linear-gradient(to bottom, #ff6f61, #e55a4e);
+    color: white;
+}
+
+/* Button styles */
+button.suggested-action {
+    background: linear-gradient(to bottom, #ff6f61, #e55a4e);
+    border-color: #cc483c;
+    color: white;
+}
+
+button.suggested-action:hover {
+    background: linear-gradient(to bottom, #ff8a7a, #ff6f61);
+}
+
+button.destructive-action {
+    background: linear-gradient(to bottom, #e74c3c, #c0392b);
+    border-color: #a93226;
+    color: white;
+}
+
+/* Plugin list and mixer styling */
+.plugin-list {
+    background-color: #ffffff;
+    border: 1px solid #ff6f61;
+}
+
+.plugin-item:selected {
+    background-color: rgba(255, 111, 97, 0.2);
+    color: #b8372a;
+}
+
+.mixer-channel {
+    background-color: #fffcfb;
+    border: 1px solid #ffd4cf;
+}
+
+/* Scale (slider) styling */
+scale trough {
+    background-color: #fef4f3;
+    border: 1px solid #ff6f61;
+}
+
+scale highlight {
+    background-color: #ff6f61;
+}
+
+scale slider {
+    background-color: #ffffff;
+    border: 2px solid #ff6f61;
+}
+
+/* Entry and text styling */
+entry {
+    border-color: #ff6f61;
+    background-color: white;
+}
+
+entry:focus {
+    border-color: #e55a4e;
+    box-shadow: 0 0 3px rgba(255, 111, 97, 0.3);
+}
+
+/* Progress bar */
+progressbar progress {
+    background-color: #ff6f61;
+}
+
+progressbar trough {
+    background-color: #fef4f3;
+}

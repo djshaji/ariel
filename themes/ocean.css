@@ -1,0 +1,80 @@
+/* Ariel Ocean Theme */
+/* Primary color: #3498db */
+
+/* Window and background colors */
+window {
+    background-color: #f8fcff;
+}
+
+headerbar {
+    background: linear-gradient(to bottom, #3498db, #2980b9);
+    color: white;
+}
+
+/* Button styles */
+button.suggested-action {
+    background: linear-gradient(to bottom, #3498db, #2980b9);
+    border-color: #2471a3;
+    color: white;
+}
+
+button.suggested-action:hover {
+    background: linear-gradient(to bottom, #5dade2, #3498db);
+}
+
+button.destructive-action {
+    background: linear-gradient(to bottom, #e74c3c, #c0392b);
+    border-color: #a93226;
+    color: white;
+}
+
+/* Plugin list and mixer styling */
+.plugin-list {
+    background-color: #ffffff;
+    border: 1px solid #3498db;
+}
+
+.plugin-item:selected {
+    background-color: rgba(52, 152, 219, 0.2);
+    color: #21618c;
+}
+
+.mixer-channel {
+    background-color: #fafcfe;
+    border: 1px solid #aed6f1;
+}
+
+/* Scale (slider) styling */
+scale trough {
+    background-color: #eaf2f8;
+    border: 1px solid #3498db;
+}
+
+scale highlight {
+    background-color: #3498db;
+}
+
+scale slider {
+    background-color: #ffffff;
+    border: 2px solid #3498db;
+}
+
+/* Entry and text styling */
+entry {
+    border-color: #3498db;
+    background-color: white;
+}
+
+entry:focus {
+    border-color: #2980b9;
+    box-shadow: 0 0 3px rgba(52, 152, 219, 0.3);
+}
+
+/* Progress bar */
+progressbar progress {
+    background-color: #3498db;
+}
+
+progressbar trough {
+    background-color: #eaf2f8;
+}

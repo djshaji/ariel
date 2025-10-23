@@ -1,0 +1,80 @@
+/* Ariel Forest Theme */
+/* Primary color: #27ae60 */
+
+/* Window and background colors */
+window {
+    background-color: #f8fcf9;
+}
+
+headerbar {
+    background: linear-gradient(to bottom, #27ae60, #229954);
+    color: white;
+}
+
+/* Button styles */
+button.suggested-action {
+    background: linear-gradient(to bottom, #27ae60, #229954);
+    border-color: #1e8449;
+    color: white;
+}
+
+button.suggested-action:hover {
+    background: linear-gradient(to bottom, #52c4a0, #27ae60);
+}
+
+button.destructive-action {
+    background: linear-gradient(to bottom, #e74c3c, #c0392b);
+    border-color: #a93226;
+    color: white;
+}
+
+/* Plugin list and mixer styling */
+.plugin-list {
+    background-color: #ffffff;
+    border: 1px solid #27ae60;
+}
+
+.plugin-item:selected {
+    background-color: rgba(39, 174, 96, 0.2);
+    color: #186a3b;
+}
+
+.mixer-channel {
+    background-color: #fafdfb;
+    border: 1px solid #a9dfbf;
+}
+
+/* Scale (slider) styling */
+scale trough {
+    background-color: #eafaf1;
+    border: 1px solid #27ae60;
+}
+
+scale highlight {
+    background-color: #27ae60;
+}
+
+scale slider {
+    background-color: #ffffff;
+    border: 2px solid #27ae60;
+}
+
+/* Entry and text styling */
+entry {
+    border-color: #27ae60;
+    background-color: white;
+}
+
+entry:focus {
+    border-color: #229954;
+    box-shadow: 0 0 3px rgba(39, 174, 96, 0.3);
+}
+
+/* Progress bar */
+progressbar progress {
+    background-color: #27ae60;
+}
+
+progressbar trough {
+    background-color: #eafaf1;
+}

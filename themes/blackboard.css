@@ -1,0 +1,427 @@
+/*
+ * Ariel LV2 Host - Blackboard Theme
+ * Custom GTK4 CSS styling with blackboard color scheme
+ */
+
+/* Root color definitions - Blackboard Palette */
+:root {
+  --pastel-pink: #3b3b3b;
+  --pastel-blue: #3b3b3b;
+  --pastel-green: #3b3b3b;
+  --pastel-purple: #3b3b3b;
+  --pastel-yellow: #3b3b3b;
+  --pastel-orange: #3b3b3b;
+  --pastel-gray: #3b3b3b;
+  --pastel-lavender: #3b3b3b;
+  
+  /* Darker tones for text and borders */
+  --dark-pink: #a9b7c6;
+  --dark-blue: #a9b7c6;
+  --dark-green: #a9b7c6;
+  --dark-purple: #a9b7c6;
+  --dark-yellow: #a9b7c6;
+  --dark-orange: #a9b7c6;
+  --dark-gray: #a9b7c6;
+  --dark-lavender: #a9b7c6;
+  
+  /* Background colors */
+  --surface-1: #2b2b2b;
+  --surface-2: #3b3b3b;
+  --surface-3: #4b4b4b;
+  
+  /* Text colors */
+  --text-primary: #a9b7c6;
+  --text-secondary: #89a7b6;
+  --text-muted: #6997a6;
+}
+
+/* Application Window */
+window {
+  background-color: var(--surface-1);
+  color: var(--text-primary);
+}
+
+/* Headers and Titles */
+.title-1 {
+  color: var(--dark-purple);
+  font-weight: 700;
+  font-size: 2.2em;
+  margin: 0.5em 0;
+}
+
+.title-2 {
+  color: var(--dark-blue);
+  font-weight: 600;
+  font-size: 1.8em;
+  margin: 0.4em 0;
+}
+
+.title-3 {
+  color: var(--dark-green);
+  font-weight: 600;
+  font-size: 1.5em;
+  margin: 0.3em 0;
+}
+
+.title-4 {
+  color: var(--dark-purple);
+  font-weight: 600;
+  font-size: 1.2em;
+  margin: 0.2em 0;
+}
+
+.title-5 {
+  color: var(--dark-blue);
+  font-weight: 500;
+  font-size: 1.1em;
+  margin: 0.1em 0;
+}
+
+/* Caption text for parameter labels */
+.caption {
+  font-size: 0.9em;
+  font-weight: 500;
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+/* Dimmed labels for empty states */
+.dim-label {
+  color: var(--text-muted);
+  font-style: italic;
+  opacity: 0.7;
+}
+
+/* Suggested Action Buttons - Primary actions in soft blue */
+.suggested-action {
+  background: linear-gradient(135deg, var(--pastel-blue), var(--pastel-lavender));
+  color: var(--dark-blue);
+  border: 1px solid var(--dark-blue);
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(169, 183, 198, 0.2);
+}
+
+.suggested-action:hover {
+  background: linear-gradient(135deg, var(--dark-blue), var(--dark-lavender));
+  color: #2b2b2b;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(169, 183, 198, 0.3);
+}
+
+.suggested-action:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(169, 183, 198, 0.2);
+}
+
+/* Destructive Action Buttons - Delete/Remove actions in soft red */
+.destructive-action {
+  background: linear-gradient(135deg, var(--pastel-pink), var(--pastel-orange));
+  color: var(--dark-pink);
+  border: 1px solid var(--dark-pink);
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(169, 183, 198, 0.2);
+}
+
+.destructive-action:hover {
+  background: linear-gradient(135deg, var(--dark-pink), var(--dark-orange));
+  color: #2b2b2b;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(169, 183, 198, 0.3);
+}
+
+.destructive-action:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(169, 183, 198, 0.2);
+}
+
+/* Pill-shaped buttons */
+.pill {
+  border-radius: 20px;
+  padding: 6px 16px;
+  min-width: 60px;
+}
+
+/* Circular buttons for transport controls */
+.circular {
+  border-radius: 50%;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px;
+}
+
+/* Card containers for plugin panels */
+.card {
+  background: var(--surface-2);
+  border: 1px solid var(--pastel-gray);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  border-color: var(--pastel-blue);
+}
+
+/* Drop target for drag and drop */
+.drop-target {
+  background: linear-gradient(135deg, var(--pastel-green), var(--pastel-blue));
+  border: 2px dashed var(--dark-green);
+  border-radius: 12px;
+  padding: 24px;
+  margin: 8px;
+  transition: all 0.2s ease;
+  opacity: 0.8;
+}
+
+.drop-target:hover {
+  opacity: 1;
+  background: linear-gradient(135deg, var(--dark-green), var(--dark-blue));
+  color: #2b2b2b;
+  transform: scale(1.02);
+}
+
+/* Parameter Control Scales */
+scale {
+  margin: 8px 0;
+}
+
+scale trough {
+  background: var(--pastel-gray);
+  border-radius: 6px;
+  min-height: 8px;
+}
+
+scale highlight {
+  background: linear-gradient(90deg, var(--pastel-blue), var(--pastel-purple));
+  border-radius: 6px;
+}
+
+scale slider {
+  background: linear-gradient(135deg, var(--dark-blue), var(--dark-purple));
+  border: 2px solid var(--surface-1);
+  border-radius: 50%;
+  min-width: 18px;
+  min-height: 18px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  transition: all 0.2s ease;
+}
+
+scale slider:hover {
+  transform: scale(1.2);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* Toggle Buttons */
+togglebutton {
+  background: var(--pastel-gray);
+  color: var(--text-secondary);
+  border: 1px solid var(--dark-gray);
+  border-radius: 8px;
+  padding: 8px 16px;
+  transition: all 0.2s ease;
+}
+
+togglebutton:checked {
+  background: linear-gradient(135deg, var(--pastel-green), var(--pastel-blue));
+  color: var(--dark-green);
+  border-color: var(--dark-green);
+  box-shadow: 0 2px 4px rgba(169, 183, 198, 0.2);
+}
+
+togglebutton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* File Chooser Buttons */
+button {
+  background: var(--surface-2);
+  color: #a9b7c6;
+  border: 1px solid var(--pastel-gray);
+  border-radius: 6px;
+  padding: 8px 12px;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  background: var(--pastel-blue);
+  color: #a9b7c6;
+  border-color: var(--dark-blue);
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+/* Scrolled Windows */
+scrolledwindow {
+  background: var(--surface-1);
+  border-radius: 8px;
+}
+
+scrolledwindow > viewport {
+  background: transparent;
+}
+
+/* Scrollbars */
+scrollbar {
+  background: var(--surface-2);
+  border-radius: 6px;
+}
+
+scrollbar slider {
+  background: var(--pastel-blue);
+  border-radius: 6px;
+  min-width: 12px;
+  min-height: 12px;
+  transition: all 0.2s ease;
+}
+
+scrollbar slider:hover {
+  background: var(--dark-blue);
+}
+
+/* Separators */
+separator {
+  background: var(--pastel-gray);
+  min-height: 1px;
+  min-width: 1px;
+  margin: 8px 0;
+}
+
+/* List Views */
+listview {
+  background: var(--surface-1);
+  border-radius: 8px;
+}
+
+listview row {
+  padding: 8px 12px;
+  transition: background-color 0.2s ease;
+  color: var(--text-primary);
+}
+
+listview row:hover {
+  background: var(--surface-2);
+}
+
+listview row:selected {
+  background: linear-gradient(135deg, var(--pastel-purple), var(--pastel-blue));
+  color: var(--text-primary);
+}
+
+/* Paned containers */
+paned separator {
+  background: var(--pastel-gray);
+  min-width: 1px;
+  min-height: 1px;
+}
+
+paned separator:hover {
+  background: var(--dark-blue);
+}
+
+/* HeaderBar */
+headerbar {
+  background: linear-gradient(135deg, var(--pastel-lavender), var(--pastel-blue));
+  color: var(--dark-purple);
+  border-bottom: 1px solid var(--pastel-gray);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+headerbar button {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--dark-purple);
+}
+
+headerbar button:hover {
+  background: rgba(169, 183, 198, 0.2);
+  border-color: var(--dark-purple);
+}
+
+/* Status indicators */
+.status-online {
+  color: var(--dark-green);
+  background: var(--pastel-green);
+  border-radius: 12px;
+  padding: 4px 8px;
+  font-size: 0.8em;
+  font-weight: 500;
+}
+
+.status-offline {
+  color: var(--dark-pink);
+  background: var(--pastel-pink);
+  border-radius: 12px;
+  padding: 4px 8px;
+  font-size: 0.8em;
+  font-weight: 500;
+}
+
+/* Custom emoji support for file buttons */
+button:has(label:first-child) {
+  font-family: "Noto Color Emoji", sans-serif;
+}
+
+/* Animation keyframes */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* Apply animations */
+.card {
+  animation: fade-in 0.3s ease-out;
+}
+
+.suggested-action:active,
+.destructive-action:active {
+  animation: pulse 0.1s ease-out;
+}
+
+/* Focus styles */
+*:focus {
+  outline: 2px solid var(--dark-blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root {
+    --text-primary: #ffffff;
+    --text-secondary: #cccccc;
+    --surface-1: #000000;
+    --surface-2: #1a1a1a;
+  }
+  
+  .suggested-action,
+  .destructive-action {
+    border-width: 2px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

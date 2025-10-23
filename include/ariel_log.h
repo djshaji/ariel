@@ -5,6 +5,9 @@
 extern "C" {
 #endif
 
+#define LOG_FUNCTION_INFO() g_print ("[%s %d] %s\n", __FILE__, __LINE__, __func__ );
+#define OUT() g_print ("\033[36m<== [%s %d]\033[0m %s\n", __FILE__, __LINE__, __func__ );
+#define IN() g_print ("\033[32m==> [%s %d]\033[0m %s\n", __FILE__, __LINE__, __func__ );
 // Log levels
 typedef enum {
     ARIEL_LOG_ERROR = 0,

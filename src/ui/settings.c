@@ -120,6 +120,7 @@ ariel_save_theme_preference(const char *theme_name)
     
     g_key_file_free(key_file);
     g_free(config_file);
+    OUT();
 }
 
 char *
@@ -229,7 +230,18 @@ static void
 on_settings_response(GtkDialog *dialog, int response_id, ArielSettingsData *data)
 {
     // Save settings here if needed
+    // Only destroy the dialog here. Freeing `data` must wait until the
+    // dialog is fully destroyed because GTK widgets (like the drop-down)
+    // may still hold a reference to the GListStore model. Freeing it
+    // immediately can cause use-after-free crashes when the widget
+    // teardown continues.
     gtk_window_destroy(GTK_WINDOW(dialog));
+}
+
+static void
+on_settings_destroy(GtkWidget *widget, gpointer user_data)
+{
+    ArielSettingsData *data = (ArielSettingsData*)user_data;
     settings_data_free(data);
 }
 
@@ -338,6 +350,10 @@ ariel_show_settings_dialog(ArielWindow *window)
     
     // Connect response signal
     g_signal_connect(dialog, "response", G_CALLBACK(on_settings_response), data);
+    /* Ensure data is freed after the dialog has been destroyed to avoid
+     * freeing objects that GTK widgets may still reference during teardown.
+     */
+    g_signal_connect(dialog, "destroy", G_CALLBACK(on_settings_destroy), data);
     
     // Free themes array
     for (i = 0; i < theme_count; i++) {

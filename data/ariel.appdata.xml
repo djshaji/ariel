@@ -12,6 +12,22 @@
       with real-time audio processing capabilities.
     </p>
   </description>
+  
+  <releases>
+    <release version="6.0.0" date="2025-10-23">
+      <description>
+        <p>Major release with comprehensive file parameter support</p>
+        <ul>
+          <li>Multi-file parameter plugin support (Ratatouille, Neural Amp Modeler)</li>
+          <li>Enhanced file dialogs with support for .wav, .nam, .ir, .json formats</li>
+          <li>Thread-safe file loading with jalv-style message queuing</li>
+          <li>Improved buffer management and atom message handling</li>
+          <li>Better plugin compatibility and stability</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+  
   <categories>
     <category>AudioVideo</category>
     <category>Audio</category>

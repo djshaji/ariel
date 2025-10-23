@@ -35,6 +35,11 @@
 
 ## Parameter Control System
 - ✅ **Dynamic Parameter Controls** - Auto-generated UI controls for all plugin parameters
+- ✅ **File Parameter Support** - Complete LV2 Atom messaging system for file-based parameters
+- ✅ **Multi-file Parameter Plugins** - Support for plugins with multiple file parameters (e.g., Ratatouille with 4 file params)
+- ✅ **Enhanced File Dialogs** - Support for .wav, .nam, .nammodel, .ir, .json, .aidadspmodel, .aidiax, .cabsim formats
+- ✅ **Thread-safe File Loading** - jalv-style UI message queuing for safe file parameter communication
+- ✅ **Buffer Management** - Cycle-based atom buffer clearing to prevent repeated file loading
 - ✅ **Real-time Parameter Updates** - Live parameter adjustment during audio processing
 - ✅ **Parameter Value Display** - Current parameter values shown on controls
 - ✅ **Control Port Connection** - Proper connection of UI controls to plugin control ports
@@ -84,6 +89,9 @@
 - Dynamic generation of parameter controls based on plugin metadata
 - Real-time parameter adjustment with immediate audio effect
 - Parameter value persistence and restoration
+- File parameter loading for Neural Amp Modeler (.nam, .nammodel files)
+- Multi-file parameter support for Ratatouille plugin (Neural Model A/B, IR File 1/2)
+- Comprehensive file format support (.wav, .ir, .json, etc.)
 
 ### Preset System
 - Save current plugin parameters to named presets
@@ -98,7 +106,7 @@
 
 ## Current Limitations
 - Some GTK4 theme warnings (cosmetic only)
-- Occasional application crashes requiring debugging
 - Limited to stereo audio processing
 - No MIDI support yet
 - No session management system
+- No plugin automation curves

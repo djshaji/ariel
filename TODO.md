@@ -21,6 +21,9 @@
 - [x] **Parameter Control UI** - Add UI controls for plugin parameters and real-time parameter changes ✅
   - [x] Generate parameter controls dynamically based on plugin metadata
   - [x] Implement parameter change communication between UI and audio threads
+  - [x] **File Parameter Support** - Complete LV2 Atom messaging for file-based parameters ✅
+  - [x] **Multi-file Parameter Plugins** - Support plugins with multiple file parameters ✅
+  - [x] **Enhanced File Dialogs** - Support for .wav, .nam, .ir, .json and other formats ✅
   - [ ] Add parameter automation support
   - [x] Save/restore plugin presets ✅
 

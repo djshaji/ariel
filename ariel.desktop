@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Ariel LV2 Host
+Comment=Cross-platform LV2 plugin host for real-time audio processing
+GenericName=Audio Plugin Host
+Exec=ariel
+Icon=ariel
+Terminal=false
+StartupNotify=true
+Categories=AudioVideo;Audio;Music;
+Keywords=audio;music;plugins;lv2;jack;effects;
+MimeType=audio/x-lv2-preset;
+StartupWMClass=ariel

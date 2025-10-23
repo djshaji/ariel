@@ -11,12 +11,10 @@ BuildRequires:  meson >= 0.56.0
 BuildRequires:  gcc
 BuildRequires:  pkgconfig(gtk4) >= 4.0
 BuildRequires:  pkgconfig(lilv-0)
-BuildRequires:  pkgconfig(jack)
 BuildRequires:  desktop-file-utils
 
 Requires:       gtk4 >= 4.0
 Requires:       lilv
-Requires:       jack-audio-connection-kit
 
 %description
 Ariel is a modern cross-platform LV2 plugin host built with GTK4 and lilv
@@ -33,6 +31,8 @@ support, featuring a plugin browser, mixer controls, and transport controls.
 
 %install
 %meson_install
+mkdir -p %{buildroot}%{_datadir}/ariel/themes
+cp -r themes/* %{buildroot}%{_datadir}/ariel/themes/
 
 %check
 desktop-file-validate %{buildroot}%{_datadir}/applications/*.desktop
@@ -43,6 +43,7 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/*.desktop
 %{_bindir}/ariel
 %{_datadir}/applications/*.desktop
 %{_datadir}/ariel/ariel-theme.css
+%{_datadir}/ariel/themes/
 %{_datadir}/metainfo/ariel.appdata.xml
 
 %changelog

@@ -55,7 +55,7 @@ ariel_create_header_bar(ArielWindow *window)
                      G_CALLBACK(on_audio_toggle_clicked), window);
     
     // Settings button
-    GtkWidget *settings_button = gtk_button_new_from_icon_name("preferences-system-symbolic");
+    GtkWidget *settings_button = gtk_button_new_with_label("⚙️");
     gtk_widget_set_tooltip_text(settings_button, "Settings");
     gtk_header_bar_pack_end(GTK_HEADER_BAR(header_bar), settings_button);
     g_signal_connect(settings_button, "clicked",

@@ -20,6 +20,32 @@ settings_data_free(ArielSettingsData *data)
     }
 }
 
+char * ariel_get_themes_directory(void)
+{
+    // Get themes directory path
+    char *themes_dir = NULL;
+    char * data_dirs [] = {
+        "/usr/share",
+        "/usr/local/share",
+        g_get_current_dir(),
+        NULL
+    };
+
+    for (int i = 0; data_dirs[i] != NULL; i++) {
+        char *possible_dir = g_build_filename(data_dirs[i], "ariel", "themes", NULL);
+        if (g_file_test(possible_dir, G_FILE_TEST_IS_DIR)) {
+            themes_dir = possible_dir;
+            ARIEL_INFO("Found themes directory: %s", themes_dir);
+            break;
+        }
+        g_free(possible_dir);
+    }
+    if (!themes_dir)
+        themes_dir = g_build_filename(g_get_current_dir(), "themes", NULL);
+
+    return themes_dir;
+}
+
 static char **
 ariel_probe_available_themes(int *count)
 {
@@ -29,9 +55,7 @@ ariel_probe_available_themes(int *count)
     int theme_count = 0;
     int capacity = 10;
     
-    // Get themes directory path
-    char *themes_dir = g_build_filename(g_get_current_dir(), "themes", NULL);
-    
+    char * themes_dir = ariel_get_themes_directory();
     // Allocate initial array
     themes = g_malloc(capacity * sizeof(char*));
     
@@ -186,9 +210,11 @@ ariel_apply_theme(const char *theme_name)
     
     // Build path to theme CSS file
     char *theme_filename = g_strdup_printf("%s.css", theme_name);
-    css_file_path = g_build_filename(g_get_current_dir(), "themes", theme_filename, NULL);
+    char * themes_dir = ariel_get_themes_directory();
+    css_file_path = g_build_filename(themes_dir, theme_filename, NULL);
     g_free(theme_filename);
-    
+    g_free(themes_dir);
+
     // Load CSS from file
     if (g_file_test(css_file_path, G_FILE_TEST_EXISTS)) {
         gtk_css_provider_load_from_path(current_theme_provider, css_file_path);

@@ -1,33 +1,33 @@
 /*
- * Ariel LV2 Host - Violet Theme
- * Custom GTK4 CSS styling with violet color scheme
+ * Ariel LV2 Host - Soft Pastel Theme
+ * Custom GTK4 CSS styling with pastel color scheme
  */
 
-/* Root color definitions - Violet Palette */
+/* Root color definitions - Soft Pastel Palette */
 :root {
-  --pastel-pink: #f4f0f8;
-  --pastel-blue: #e8e2f0;
-  --pastel-green: #e5d9f3;
-  --pastel-purple: #f0eaf5;
-  --pastel-yellow: #f7f2fb;
-  --pastel-orange: #f2ebf7;
-  --pastel-gray: #f8f5fa;
-  --pastel-lavender: #ede6f2;
+  --pastel-pink: #f8d7da;
+  --pastel-blue: #d4e8fc;
+  --pastel-green: #d1ecf1;
+  --pastel-purple: #e2d9f3;
+  --pastel-yellow: #fff3cd;
+  --pastel-orange: #f7e5d3;
+  --pastel-gray: #f1f3f4;
+  --pastel-lavender: #e8e2f0;
   
   /* Darker tones for text and borders */
-  --dark-pink: #7d3c98;
-  --dark-blue: #8e44ad;
-  --dark-green: #6c3483;
-  --dark-purple: #8b5a9e;
-  --dark-yellow: #884ea0;
-  --dark-orange: #7e5a9b;
-  --dark-gray: #9c27b0;
-  --dark-lavender: #8e44ad;
+  --dark-pink: #b85450;
+  --dark-blue: #4a90b8;
+  --dark-green: #3d8b96;
+  --dark-purple: #7c3aed;
+  --dark-yellow: #d4a72c;
+  --dark-orange: #cc7722;
+  --dark-gray: #6c757d;
+  --dark-lavender: #8b5a9e;
   
   /* Background colors */
   --surface-1: #fefefe;
-  --surface-2: #faf8fb;
-  --surface-3: #f5f1f8;
+  --surface-2: #f8f9fa;
+  --surface-3: #e9ecef;
   
   /* Text colors */
   --text-primary: #2d3436;
@@ -43,35 +43,35 @@ window {
 
 /* Headers and Titles */
 .title-1 {
-  color: var(--dark-blue);
+  color: var(--dark-purple);
   font-weight: 700;
   font-size: 2.2em;
   margin: 0.5em 0;
 }
 
 .title-2 {
-  color: var(--dark-purple);
+  color: var(--dark-blue);
   font-weight: 600;
   font-size: 1.8em;
   margin: 0.4em 0;
 }
 
 .title-3 {
-  color: var(--dark-pink);
+  color: var(--dark-green);
   font-weight: 600;
   font-size: 1.5em;
   margin: 0.3em 0;
 }
 
 .title-4 {
-  color: var(--dark-blue);
+  color: var(--dark-purple);
   font-weight: 600;
   font-size: 1.2em;
   margin: 0.2em 0;
 }
 
 .title-5 {
-  color: var(--dark-purple);
+  color: var(--dark-blue);
   font-weight: 500;
   font-size: 1.1em;
   margin: 0.1em 0;
@@ -92,52 +92,52 @@ window {
   opacity: 0.7;
 }
 
-/* Suggested Action Buttons - Primary actions in violet */
+/* Suggested Action Buttons - Primary actions in soft blue */
 .suggested-action {
-  background: linear-gradient(135deg, var(--pastel-blue), var(--pastel-purple));
+  background: linear-gradient(135deg, var(--pastel-blue), var(--pastel-lavender));
   color: var(--dark-blue);
   border: 1px solid var(--dark-blue);
   border-radius: 8px;
   padding: 8px 16px;
   font-weight: 500;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(142, 68, 173, 0.2);
+  box-shadow: 0 2px 4px rgba(74, 144, 184, 0.2);
 }
 
 .suggested-action:hover {
-  background: linear-gradient(135deg, var(--dark-blue), var(--dark-purple));
+  background: linear-gradient(135deg, var(--dark-blue), var(--dark-lavender));
   color: white;
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(142, 68, 173, 0.3);
+  box-shadow: 0 4px 8px rgba(74, 144, 184, 0.3);
 }
 
 .suggested-action:active {
   transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(142, 68, 173, 0.2);
+  box-shadow: 0 2px 4px rgba(74, 144, 184, 0.2);
 }
 
-/* Destructive Action Buttons - Delete/Remove actions */
+/* Destructive Action Buttons - Delete/Remove actions in soft red */
 .destructive-action {
-  background: linear-gradient(135deg, #fdedec, #fadbd8);
-  color: #c0392b;
-  border: 1px solid #c0392b;
+  background: linear-gradient(135deg, var(--pastel-pink), var(--pastel-orange));
+  color: var(--dark-pink);
+  border: 1px solid var(--dark-pink);
   border-radius: 8px;
   padding: 8px 16px;
   font-weight: 500;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(192, 57, 43, 0.2);
+  box-shadow: 0 2px 4px rgba(184, 84, 80, 0.2);
 }
 
 .destructive-action:hover {
-  background: linear-gradient(135deg, #c0392b, #a93226);
+  background: linear-gradient(135deg, var(--dark-pink), var(--dark-orange));
   color: white;
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(192, 57, 43, 0.3);
+  box-shadow: 0 4px 8px rgba(184, 84, 80, 0.3);
 }
 
 .destructive-action:active {
   transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(192, 57, 43, 0.2);
+  box-shadow: 0 2px 4px rgba(184, 84, 80, 0.2);
 }
 
 /* Pill-shaped buttons */
@@ -162,20 +162,20 @@ window {
   border-radius: 12px;
   padding: 16px;
   margin: 8px;
-  box-shadow: 0 2px 8px rgba(142, 68, 173, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.2s ease;
 }
 
 .card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(142, 68, 173, 0.15);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   border-color: var(--pastel-blue);
 }
 
 /* Drop target for drag and drop */
 .drop-target {
-  background: linear-gradient(135deg, var(--pastel-purple), var(--pastel-blue));
-  border: 2px dashed var(--dark-purple);
+  background: linear-gradient(135deg, var(--pastel-green), var(--pastel-blue));
+  border: 2px dashed var(--dark-green);
   border-radius: 12px;
   padding: 24px;
   margin: 8px;
@@ -185,7 +185,7 @@ window {
 
 .drop-target:hover {
   opacity: 1;
-  background: linear-gradient(135deg, var(--dark-purple), var(--dark-blue));
+  background: linear-gradient(135deg, var(--dark-green), var(--dark-blue));
   color: white;
   transform: scale(1.02);
 }
@@ -212,13 +212,13 @@ scale slider {
   border-radius: 50%;
   min-width: 18px;
   min-height: 18px;
-  box-shadow: 0 2px 4px rgba(142, 68, 173, 0.2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   transition: all 0.2s ease;
 }
 
 scale slider:hover {
   transform: scale(1.2);
-  box-shadow: 0 3px 6px rgba(142, 68, 173, 0.3);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
 }
 
 /* Toggle Buttons */
@@ -232,15 +232,15 @@ togglebutton {
 }
 
 togglebutton:checked {
-  background: linear-gradient(135deg, var(--pastel-purple), var(--pastel-blue));
-  color: var(--dark-purple);
-  border-color: var(--dark-purple);
-  box-shadow: 0 2px 4px rgba(142, 68, 173, 0.2);
+  background: linear-gradient(135deg, var(--pastel-green), var(--pastel-blue));
+  color: var(--dark-green);
+  border-color: var(--dark-green);
+  box-shadow: 0 2px 4px rgba(61, 139, 150, 0.2);
 }
 
 togglebutton:hover {
   transform: translateY(-1px);
-  box-shadow: 0 3px 6px rgba(142, 68, 173, 0.1);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
 }
 
 /* File Chooser Buttons */
@@ -303,26 +303,20 @@ separator {
 listview {
   background: var(--surface-1);
   border-radius: 8px;
-  border: 1px solid var(--dark-blue);
 }
 
 listview row {
   padding: 8px 12px;
   transition: background-color 0.2s ease;
-  border-bottom: 1px solid var(--pastel-gray);
 }
 
 listview row:hover {
-  background: rgba(142, 68, 173, 0.1);
+  background: var(--pastel-blue);
 }
 
 listview row:selected {
-  background: rgba(142, 68, 173, 0.2);
-  color: var(--dark-blue);
-}
-
-listview row:selected:hover {
-  background: rgba(142, 68, 173, 0.3);
+  background: linear-gradient(135deg, var(--pastel-purple), var(--pastel-blue));
+  color: var(--dark-purple);
 }
 
 /* Paned containers */
@@ -338,27 +332,27 @@ paned separator:hover {
 
 /* HeaderBar */
 headerbar {
-  background: linear-gradient(135deg, var(--pastel-blue), var(--pastel-purple));
-  color: var(--dark-blue);
+  background: linear-gradient(135deg, var(--pastel-lavender), var(--pastel-blue));
+  color: var(--dark-purple);
   border-bottom: 1px solid var(--pastel-gray);
-  box-shadow: 0 2px 4px rgba(142, 68, 173, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 headerbar button {
   background: transparent;
   border: 1px solid transparent;
-  color: var(--dark-blue);
+  color: var(--dark-purple);
 }
 
 headerbar button:hover {
   background: rgba(255, 255, 255, 0.2);
-  border-color: var(--dark-blue);
+  border-color: var(--dark-purple);
 }
 
 /* Status indicators */
 .status-online {
-  color: var(--dark-purple);
-  background: var(--pastel-purple);
+  color: var(--dark-green);
+  background: var(--pastel-green);
   border-radius: 12px;
   padding: 4px 8px;
   font-size: 0.8em;
@@ -366,8 +360,8 @@ headerbar button:hover {
 }
 
 .status-offline {
-  color: #c0392b;
-  background: #fdedec;
+  color: var(--dark-pink);
+  background: var(--pastel-pink);
   border-radius: 12px;
   padding: 4px 8px;
   font-size: 0.8em;

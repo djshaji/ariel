@@ -1,84 +1,431 @@
-/* Ariel Teal Theme */
-/* Primary color: #1abc9c */
+/*
+ * Ariel LV2 Host - Teal Theme
+ * Custom GTK4 CSS styling with teal color scheme
+ */
 
-@define-color theme_primary_color #1abc9c;
-@define-color theme_primary_dark #16a085;
-@define-color theme_primary_light #4dd0c7;
+/* Root color definitions - Teal Palette */
+:root {
+  --pastel-pink: #e8f8f5;
+  --pastel-blue: #d4f6f0;
+  --pastel-green: #b2f2e6;
+  --pastel-purple: #ccf4ed;
+  --pastel-yellow: #e0f9f4;
+  --pastel-orange: #d6f7f2;
+  --pastel-gray: #f1f9f7;
+  --pastel-lavender: #e5f8f3;
+  
+  /* Darker tones for text and borders */
+  --dark-pink: #138d75;
+  --dark-blue: #1abc9c;
+  --dark-green: #17a589;
+  --dark-purple: #148f77;
+  --dark-yellow: #16a085;
+  --dark-orange: #1ba68c;
+  --dark-gray: #239b56;
+  --dark-lavender: #138d75;
+  
+  /* Background colors */
+  --surface-1: #fefefe;
+  --surface-2: #f8fcfa;
+  --surface-3: #f0f9f6;
+  
+  /* Text colors */
+  --text-primary: #2d3436;
+  --text-secondary: #636e72;
+  --text-muted: #a0a6ab;
+}
 
-/* Window and background colors */
+/* Application Window */
 window {
-    background-color: #f8fffe;
+  background-color: var(--surface-1);
+  color: var(--text-primary);
 }
 
-headerbar {
-    background: linear-gradient(to bottom, #1abc9c, #16a085);
-    color: white;
+/* Headers and Titles */
+.title-1 {
+  color: var(--dark-blue);
+  font-weight: 700;
+  font-size: 2.2em;
+  margin: 0.5em 0;
 }
 
-/* Button styles */
-button.suggested-action {
-    background: linear-gradient(to bottom, #1abc9c, #16a085);
-    border-color: #148f7b;
-    color: white;
+.title-2 {
+  color: var(--dark-green);
+  font-weight: 600;
+  font-size: 1.8em;
+  margin: 0.4em 0;
 }
 
-button.suggested-action:hover {
-    background: linear-gradient(to bottom, #4dd0c7, #1abc9c);
+.title-3 {
+  color: var(--dark-purple);
+  font-weight: 600;
+  font-size: 1.5em;
+  margin: 0.3em 0;
 }
 
-button.destructive-action {
-    background: linear-gradient(to bottom, #e74c3c, #c0392b);
-    border-color: #a93226;
-    color: white;
+.title-4 {
+  color: var(--dark-blue);
+  font-weight: 600;
+  font-size: 1.2em;
+  margin: 0.2em 0;
 }
 
-/* Plugin list and mixer styling */
-.plugin-list {
-    background-color: #ffffff;
-    border: 1px solid #1abc9c;
+.title-5 {
+  color: var(--dark-green);
+  font-weight: 500;
+  font-size: 1.1em;
+  margin: 0.1em 0;
 }
 
-.plugin-item:selected {
-    background-color: rgba(26, 188, 156, 0.2);
-    color: #0e6b5a;
+/* Caption text for parameter labels */
+.caption {
+  font-size: 0.9em;
+  font-weight: 500;
+  color: var(--text-secondary);
+  opacity: 0.8;
 }
 
-.mixer-channel {
-    background-color: #f9fdfc;
-    border: 1px solid #bde6dd;
+/* Dimmed labels for empty states */
+.dim-label {
+  color: var(--text-muted);
+  font-style: italic;
+  opacity: 0.7;
 }
 
-/* Scale (slider) styling */
+/* Suggested Action Buttons - Primary actions in teal */
+.suggested-action {
+  background: linear-gradient(135deg, var(--pastel-blue), var(--pastel-green));
+  color: var(--dark-blue);
+  border: 1px solid var(--dark-blue);
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(26, 188, 156, 0.2);
+}
+
+.suggested-action:hover {
+  background: linear-gradient(135deg, var(--dark-blue), var(--dark-green));
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(26, 188, 156, 0.3);
+}
+
+.suggested-action:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(26, 188, 156, 0.2);
+}
+
+/* Destructive Action Buttons - Delete/Remove actions */
+.destructive-action {
+  background: linear-gradient(135deg, #fdedec, #fadbd8);
+  color: #c0392b;
+  border: 1px solid #c0392b;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(192, 57, 43, 0.2);
+}
+
+.destructive-action:hover {
+  background: linear-gradient(135deg, #c0392b, #a93226);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(192, 57, 43, 0.3);
+}
+
+.destructive-action:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(192, 57, 43, 0.2);
+}
+
+/* Pill-shaped buttons */
+.pill {
+  border-radius: 20px;
+  padding: 6px 16px;
+  min-width: 60px;
+}
+
+/* Circular buttons for transport controls */
+.circular {
+  border-radius: 50%;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px;
+}
+
+/* Card containers for plugin panels */
+.card {
+  background: var(--surface-2);
+  border: 1px solid var(--pastel-gray);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 8px;
+  box-shadow: 0 2px 8px rgba(26, 188, 156, 0.1);
+  transition: all 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(26, 188, 156, 0.15);
+  border-color: var(--pastel-blue);
+}
+
+/* Drop target for drag and drop */
+.drop-target {
+  background: linear-gradient(135deg, var(--pastel-green), var(--pastel-blue));
+  border: 2px dashed var(--dark-green);
+  border-radius: 12px;
+  padding: 24px;
+  margin: 8px;
+  transition: all 0.2s ease;
+  opacity: 0.8;
+}
+
+.drop-target:hover {
+  opacity: 1;
+  background: linear-gradient(135deg, var(--dark-green), var(--dark-blue));
+  color: white;
+  transform: scale(1.02);
+}
+
+/* Parameter Control Scales */
+scale {
+  margin: 8px 0;
+}
+
 scale trough {
-    background-color: #d5f4f0;
-    border: 1px solid #1abc9c;
+  background: var(--pastel-gray);
+  border-radius: 6px;
+  min-height: 8px;
 }
 
 scale highlight {
-    background-color: #1abc9c;
+  background: linear-gradient(90deg, var(--pastel-blue), var(--pastel-green));
+  border-radius: 6px;
 }
 
 scale slider {
-    background-color: #ffffff;
-    border: 2px solid #1abc9c;
+  background: linear-gradient(135deg, var(--dark-blue), var(--dark-green));
+  border: 2px solid white;
+  border-radius: 50%;
+  min-width: 18px;
+  min-height: 18px;
+  box-shadow: 0 2px 4px rgba(26, 188, 156, 0.2);
+  transition: all 0.2s ease;
 }
 
-/* Entry and text styling */
-entry {
-    border-color: #1abc9c;
-    background-color: white;
+scale slider:hover {
+  transform: scale(1.2);
+  box-shadow: 0 3px 6px rgba(26, 188, 156, 0.3);
 }
 
-entry:focus {
-    border-color: #16a085;
-    box-shadow: 0 0 3px rgba(26, 188, 156, 0.3);
+/* Toggle Buttons */
+togglebutton {
+  background: var(--pastel-gray);
+  color: var(--text-secondary);
+  border: 1px solid var(--dark-gray);
+  border-radius: 8px;
+  padding: 8px 16px;
+  transition: all 0.2s ease;
 }
 
-/* Progress bar */
-progressbar progress {
-    background-color: #1abc9c;
+togglebutton:checked {
+  background: linear-gradient(135deg, var(--pastel-green), var(--pastel-blue));
+  color: var(--dark-green);
+  border-color: var(--dark-green);
+  box-shadow: 0 2px 4px rgba(26, 188, 156, 0.2);
 }
 
-progressbar trough {
-    background-color: #e8f8f5;
+togglebutton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(26, 188, 156, 0.1);
+}
+
+/* File Chooser Buttons */
+button {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  border: 1px solid var(--pastel-gray);
+  border-radius: 6px;
+  padding: 8px 12px;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  background: var(--pastel-blue);
+  border-color: var(--dark-blue);
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+/* Scrolled Windows */
+scrolledwindow {
+  background: var(--surface-1);
+  border-radius: 8px;
+}
+
+scrolledwindow > viewport {
+  background: transparent;
+}
+
+/* Scrollbars */
+scrollbar {
+  background: var(--surface-2);
+  border-radius: 6px;
+}
+
+scrollbar slider {
+  background: var(--pastel-blue);
+  border-radius: 6px;
+  min-width: 12px;
+  min-height: 12px;
+  transition: all 0.2s ease;
+}
+
+scrollbar slider:hover {
+  background: var(--dark-blue);
+}
+
+/* Separators */
+separator {
+  background: var(--pastel-gray);
+  min-height: 1px;
+  min-width: 1px;
+  margin: 8px 0;
+}
+
+/* List Views */
+listview {
+  background: var(--surface-1);
+  border-radius: 8px;
+  border: 1px solid var(--dark-blue);
+}
+
+listview row {
+  padding: 8px 12px;
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid var(--pastel-gray);
+}
+
+listview row:hover {
+  background: rgba(26, 188, 156, 0.1);
+}
+
+listview row:selected {
+  background: rgba(26, 188, 156, 0.2);
+  color: var(--dark-blue);
+}
+
+listview row:selected:hover {
+  background: rgba(26, 188, 156, 0.3);
+}
+
+/* Paned containers */
+paned separator {
+  background: var(--pastel-gray);
+  min-width: 1px;
+  min-height: 1px;
+}
+
+paned separator:hover {
+  background: var(--dark-blue);
+}
+
+/* HeaderBar */
+headerbar {
+  background: linear-gradient(135deg, var(--pastel-blue), var(--pastel-green));
+  color: var(--dark-blue);
+  border-bottom: 1px solid var(--pastel-gray);
+  box-shadow: 0 2px 4px rgba(26, 188, 156, 0.1);
+}
+
+headerbar button {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--dark-blue);
+}
+
+headerbar button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: var(--dark-blue);
+}
+
+/* Status indicators */
+.status-online {
+  color: var(--dark-green);
+  background: var(--pastel-green);
+  border-radius: 12px;
+  padding: 4px 8px;
+  font-size: 0.8em;
+  font-weight: 500;
+}
+
+.status-offline {
+  color: #c0392b;
+  background: #fdedec;
+  border-radius: 12px;
+  padding: 4px 8px;
+  font-size: 0.8em;
+  font-weight: 500;
+}
+
+/* Custom emoji support for file buttons */
+button:has(label:first-child) {
+  font-family: "Noto Color Emoji", sans-serif;
+}
+
+/* Animation keyframes */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* Apply animations */
+.card {
+  animation: fade-in 0.3s ease-out;
+}
+
+.suggested-action:active,
+.destructive-action:active {
+  animation: pulse 0.1s ease-out;
+}
+
+/* Focus styles */
+*:focus {
+  outline: 2px solid var(--dark-blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root {
+    --text-primary: #000000;
+    --text-secondary: #333333;
+    --surface-1: #ffffff;
+    --surface-2: #f0f0f0;
+  }
+  
+  .suggested-action,
+  .destructive-action {
+    border-width: 2px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
 }

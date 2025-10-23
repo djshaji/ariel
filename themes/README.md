@@ -16,6 +16,16 @@ This directory contains CSS color themes for the Ariel LV2 plugin host applicati
 - **lavender.css** - Soft purple lavender theme (#9b59b6)
 - **mint.css** - Fresh mint green theme (#2ecc71)
 
+### Advanced Themes (Enhanced UI Features)
+- **teal-advanced.css** - Enhanced teal theme with modern styling and animations
+- **violet-advanced.css** - Enhanced violet theme with sophisticated gradients
+- **sunset-advanced.css** - Enhanced sunset theme with warm gradient effects
+- **ocean-advanced.css** - Enhanced ocean theme with fluid design elements
+- **forest-advanced.css** - Enhanced forest theme with natural styling
+- **midnight-advanced.css** - Enhanced midnight theme with professional polish
+- **soft-pink-advanced.css** - Enhanced soft pink theme with elegant animations
+- **gold-advanced.css** - Enhanced gold theme with luxurious design elements
+
 ### Special Themes
 - **soft-pink.css** - Gentle pink pastel theme (#ffb6c1)
 - **dark.css** - Comprehensive dark theme for low-light environments
@@ -56,6 +66,34 @@ Copy your preferred theme to the user's config directory:
 mkdir -p ~/.config/ariel
 cp themes/forest.css ~/.config/ariel/theme.css
 ```
+
+## Advanced Theme Features
+
+The **advanced themes** provide enhanced styling beyond the basic color themes:
+
+### Enhanced UI Elements
+- **CSS Variables** - Centralized color management with CSS custom properties
+- **Gradient Effects** - Beautiful linear gradients for buttons and headers
+- **Advanced Animations** - Smooth transitions, hover effects, and micro-interactions
+- **Card Layouts** - Modern card-style containers for plugin panels
+- **Focus States** - Improved accessibility with clear focus indicators
+- **Status Indicators** - Online/offline status with themed colors
+- **Drop Targets** - Styled drag-and-drop areas with visual feedback
+
+### Modern Design Features
+- **Border Radius** - Rounded corners throughout the interface
+- **Box Shadows** - Subtle depth and elevation effects
+- **Hover Transforms** - Interactive elements that respond to mouse interaction
+- **Typography Scale** - Structured heading hierarchy (title-1 through title-5)
+- **Accessibility Support** - High contrast and reduced motion media queries
+- **Responsive Design** - Scalable elements that work at different sizes
+
+### List View Enhancements
+All themes now include comprehensive list view styling with:
+- Themed borders and backgrounds
+- Hover and selection states
+- Smooth transitions
+- Consistent row spacing and typography
 
 ## Theme Structure
 

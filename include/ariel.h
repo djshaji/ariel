@@ -135,6 +135,12 @@ GtkWidget *ariel_create_plugin_list(ArielWindow *window);
 GtkWidget *ariel_create_mixer(ArielWindow *window);
 GtkWidget *ariel_create_mixer_channel(const char *name, int channel_id);
 GtkWidget *ariel_create_transport(ArielWindow *window);
+void ariel_show_settings_dialog(ArielWindow *window);
+
+// Theme Management
+void ariel_save_theme_preference(const char *theme_name);
+char *ariel_load_theme_preference(void);
+void ariel_apply_saved_theme(void);
 void ariel_transport_play(ArielWindow *window);
 void ariel_transport_stop(ArielWindow *window);
 void ariel_transport_record(ArielWindow *window);

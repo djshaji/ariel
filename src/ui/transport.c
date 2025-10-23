@@ -1,6 +1,12 @@
 #include "ariel.h"
 
 static void
+on_settings_clicked(GtkButton *button, ArielWindow *window)
+{
+    ariel_show_settings_dialog(window);
+}
+
+static void
 on_audio_toggle_clicked(GtkToggleButton *button, ArielWindow *window)
 {
     gboolean active = gtk_toggle_button_get_active(button);
@@ -44,6 +50,13 @@ ariel_create_header_bar(ArielWindow *window)
     gtk_header_bar_pack_start(GTK_HEADER_BAR(header_bar), window->audio_toggle);
     g_signal_connect(window->audio_toggle, "clicked",
                      G_CALLBACK(on_audio_toggle_clicked), window);
+    
+    // Settings button
+    GtkWidget *settings_button = gtk_button_new_from_icon_name("preferences-system-symbolic");
+    gtk_widget_set_tooltip_text(settings_button, "Settings");
+    gtk_header_bar_pack_end(GTK_HEADER_BAR(header_bar), settings_button);
+    g_signal_connect(settings_button, "clicked",
+                     G_CALLBACK(on_settings_clicked), window);
     
     // Menu button
     menu_button = gtk_menu_button_new();

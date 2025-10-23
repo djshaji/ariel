@@ -28,6 +28,7 @@ sources = [
   'src/ui/plugin_list.c',
   'src/ui/mixer.c',
   'src/ui/transport.c',
+  'src/ui/settings.c',
   'src/ui/parameter_controls.c',
   'src/ui/active_plugins.c',
   'src/audio/engine.c',

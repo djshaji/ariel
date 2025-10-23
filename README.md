@@ -4,7 +4,9 @@ A cross-platform LV2 host built with GTK4 and lilv.
 - **Real-time LV2 plugin hosting** with lilv integration
 - **Intelligent plugin search** - Quickly find plugins among 865+ discovered LV2 plugins by name, author, or URI
 - **Category filtering** - Browse plugins by type (Distortion, Reverb, Analyzer, etc.) with 40+ categories
+- **Professional theme collection** - 20+ built-in dark themes including Dracula, Nord, Gruvbox, One Dark, Solarized, and more
 - **Custom CSS theming** - Load custom styles from `~/.config/ariel/style.css` for personalized appearance
+- **Settings dialog** - Easy theme switching and configuration management
 - **Drag and drop support** for intuitive plugin loading 
 - **Parameter controls** with real-time adjustment for all plugin parameters
 - **File parameter support** - Load audio files, neural models, and impulse responses directly into plugins
@@ -225,13 +227,23 @@ sudo ninja -C builddir uninstall
    - Use "Remove All" to clear all active plugins
    - Plugins process audio in the order they appear in the list
 
-5. **Preset Management**
+5. **Theme Selection**
+   - Access the Settings dialog from the header bar menu
+   - Choose from 20+ professional dark themes:
+     - **Popular themes**: Dracula, Nord, Gruvbox, One Dark, Solarized Dark
+     - **Classic themes**: Tomorrow Night, Zenburn, Arc, Material Darker
+     - **Specialized themes**: Atomic, Ayu Dark, Badwolf, Blackboard, Cobalt2
+     - **Custom themes**: Midnight, Charcoal, Slate, Spacegray, and more
+   - Themes feature sophisticated styling with gradients, animations, and accessibility support
+   - Settings are automatically saved and restored on application restart
+
+6. **Preset Management**
    - **Individual Plugin Presets**: Save/load presets for individual plugins using the "Save" and "Load" buttons on each plugin
    - **Chain Presets**: Save entire plugin chains with all parameters using "Save Chain" and "Load Chain" buttons
    - Presets are stored in `~/.config/ariel/presets/` (individual) and `~/.config/ariel/chain_presets/` (chains)
    - Chain presets preserve plugin order, all parameter values, and bypass states
 
-6. **Transport Controls**
+7. **Transport Controls**
    - Use Play/Stop buttons in the header bar
    - Record button for future recording functionality
 
@@ -269,6 +281,41 @@ Before using Ariel, ensure your audio setup is working:
 
 ## Customization
 
+### Built-in Theme Collection
+
+Ariel includes 20+ professionally designed dark themes accessible through the Settings dialog:
+
+#### Popular Developer Themes
+- **Dracula** - Purple-tinted dark theme popular in coding
+- **Nord** - Arctic-inspired blue theme
+- **Gruvbox Dark** - Retro groove color scheme
+- **One Dark** - Atom editor's default dark theme
+- **Solarized Dark** - Scientifically designed color palette
+- **Tomorrow Night** - Clean, readable dark theme
+
+#### Editor & IDE Themes  
+- **Arc** - Flat dark theme with blue accents
+- **Ayu Dark** - Rust editor theme
+- **Badwolf** - Vim colorscheme adaptation
+- **Blackboard** - TextMate editor theme
+- **Cobalt2** - Wes Bos' coding theme
+- **Darcula** - IntelliJ IDEA dark theme
+- **Material Darker** - Google Material Design dark
+- **Zenburn** - Low-contrast retro theme
+
+#### Specialized Themes
+- **Atomic** - Red-accented scientific theme
+- **Midnight** - Deep blue midnight colors
+- **Charcoal** - Neutral gray professional theme
+- **Slate** - Modern slate gray theme
+- **Spacegray** - Minimalist space-inspired theme
+
+All themes feature:
+- **Modern GTK4 styling** with gradients and animations
+- **Accessibility support** with high contrast options
+- **Consistent design language** across all UI elements
+- **Professional appearance** suitable for audio production
+
 ### Custom CSS Theming
 
 Ariel supports custom CSS styling for complete visual customization:
@@ -295,11 +342,13 @@ Ariel supports custom CSS styling for complete visual customization:
 
 ### Tips
 
+- **Theme Selection**: Use the Settings dialog to instantly switch between 20+ professional themes
 - **Mono Plugins**: Automatically work with stereo audio - mono output is duplicated to both channels
 - **Plugin Order**: Drag plugins in the active list to reorder them
 - **Performance**: Start with smaller buffer sizes in JACK for lower latency
 - **Plugin Discovery**: Ariel caches plugin information for faster startup
-- **Custom Styling**: Restart Ariel after modifying `style.css` to see changes
+- **Custom Styling**: Create `~/.config/ariel/style.css` for complete visual customization
+- **Theme Persistence**: Selected themes are automatically saved and restored
 
 Instructions for running the application and using its features will be provided here.
 ## Contributing

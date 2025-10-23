@@ -156,49 +156,57 @@ ariel_load_theme_preference(void)
     return theme_name;
 }
 
+// Global CSS provider to track the currently applied theme
+static GtkCssProvider *current_theme_provider = NULL;
+
 static void
 ariel_apply_theme(const char *theme_name)
 {
-    GtkCssProvider *provider;
     GdkDisplay *display;
     char *css_file_path;
     GError *error = NULL;
     
-    // Get the CSS provider (create if not exists)
-    provider = gtk_css_provider_new();
     display = gdk_display_get_default();
     
-    // Remove existing custom CSS first
-    gtk_style_context_remove_provider_for_display(display, GTK_STYLE_PROVIDER(provider));
+    // Remove existing custom CSS provider if it exists
+    if (current_theme_provider) {
+        gtk_style_context_remove_provider_for_display(display, GTK_STYLE_PROVIDER(current_theme_provider));
+        g_object_unref(current_theme_provider);
+        current_theme_provider = NULL;
+    }
     
     if (g_strcmp0(theme_name, "default") == 0) {
         // For default theme, don't load any custom CSS
         g_print("Applied default theme\n");
-        g_object_unref(provider);
         return;
     }
     
+    // Create new CSS provider for the theme
+    current_theme_provider = gtk_css_provider_new();
+    
     // Build path to theme CSS file
-    css_file_path = g_build_filename(g_get_current_dir(), "themes", 
-                                     g_strdup_printf("%s.css", theme_name), NULL);
+    char *theme_filename = g_strdup_printf("%s.css", theme_name);
+    css_file_path = g_build_filename(g_get_current_dir(), "themes", theme_filename, NULL);
+    g_free(theme_filename);
     
     // Load CSS from file
     if (g_file_test(css_file_path, G_FILE_TEST_EXISTS)) {
-        gtk_css_provider_load_from_path(provider, css_file_path);
+        gtk_css_provider_load_from_path(current_theme_provider, css_file_path);
         
         // Apply CSS to display
         gtk_style_context_add_provider_for_display(display,
-                                                   GTK_STYLE_PROVIDER(provider),
+                                                   GTK_STYLE_PROVIDER(current_theme_provider),
                                                    GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
         
         g_print("Applied theme: %s\n", theme_name);
     } else {
         g_warning("Theme file not found: %s", css_file_path);
+        g_object_unref(current_theme_provider);
+        current_theme_provider = NULL;
         ariel_set_default_theme();
     }
     
     g_free(css_file_path);
-    g_object_unref(provider);
 }
 
 
@@ -242,7 +250,7 @@ static void
 on_settings_destroy(GtkWidget *widget, gpointer user_data)
 {
     ArielSettingsData *data = (ArielSettingsData*)user_data;
-    settings_data_free(data);
+    // settings_data_free(data);
 }
 
 void

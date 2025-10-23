@@ -48,6 +48,8 @@ on_file_button_clicked(GtkButton *button, ParameterControlData *data)
 {
     if (!data || !data->plugin) return;
     
+    // Set the control widget to the button that was clicked
+    data->control_widget = GTK_WIDGET(button);
     assert(data->control_widget != NULL);
     g_info ("File chooser button clicked for parameter index %u", data->param_index);
 
@@ -516,6 +518,7 @@ create_file_parameter_control_with_uri(ArielActivePlugin *plugin, const LilvPlug
     ParameterControlData *data = g_malloc0(sizeof(ParameterControlData));
     data->plugin = plugin;
     data->parameter_uri = parameter_uri; // Will be freed in callback
+    data->control_widget = file_button; // Set the control widget reference
     
     // Connect signal
     g_signal_connect_data(file_button, "clicked", 

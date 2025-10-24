@@ -1,0 +1,84 @@
+name: Build Windows
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ published ]
+
+jobs:
+  build-windows:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          gcc-mingw-w64-x86-64 \
+          mingw-w64-tools \
+          meson \
+          ninja-build \
+          wine64
+          
+    - name: Install Windows GTK4 dependencies
+      run: |
+        # This step may need manual setup of mingw64 GTK4 packages
+        # For now, we'll document the requirement
+        echo "Windows GTK4 dependencies need to be available"
+        echo "This may require additional package repositories or manual builds"
+        
+    - name: Configure Windows build
+      run: |
+        meson setup build-windows --cross-file cross/windows-x86_64.txt || true
+        
+    - name: Build for Windows  
+      run: |
+        if [ -d "build-windows" ]; then
+          meson compile -C build-windows
+        else
+          echo "Build configuration failed - missing Windows dependencies"
+          exit 1
+        fi
+        
+    - name: Test Windows executable
+      run: |
+        if [ -f "build-windows/ariel.exe" ]; then
+          file build-windows/ariel.exe
+          echo "Windows build successful"
+        else
+          echo "Windows executable not found"
+          exit 1
+        fi
+        
+    - name: Create Windows package
+      run: |
+        if [ -f "build-windows/ariel.exe" ]; then
+          ./package-windows.sh || echo "Packaging script needs Windows dependencies"
+        fi
+        
+    - name: Upload Windows artifact
+      uses: actions/upload-artifact@v4
+      if: success()
+      with:
+        name: ariel-windows-x86_64
+        path: |
+          build-windows/ariel.exe
+          ariel-windows-x86_64/
+        retention-days: 30
+        
+    - name: Upload to release
+      if: github.event_name == 'release'
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./ariel-windows-x86_64.zip
+        asset_name: ariel-windows-x86_64.zip
+        asset_content_type: application/zip

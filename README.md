@@ -84,6 +84,47 @@ meson compile -C builddir
 ./builddir/ariel
 ```
 
+### Windows Cross-Compilation
+
+You can build Ariel for Windows from Linux using MinGW-w64 cross-compiler:
+
+#### Prerequisites for Cross-Compilation
+```bash
+# Ubuntu/Debian
+sudo apt install gcc-mingw-w64-x86-64 mingw-w64-tools
+
+# Fedora/RHEL
+sudo dnf install mingw64-gcc mingw64-gtk4 mingw64-lilv
+
+# Arch Linux  
+sudo pacman -S mingw-w64-gcc mingw-w64-gtk4
+```
+
+#### Cross-Compile for Windows
+```bash
+# Clone repository
+git clone https://github.com/djshaji/ariel.git
+cd ariel
+
+# Use the automated build script
+./build-windows.sh
+
+# Or manually configure cross-compilation
+meson setup build-windows --cross-file cross/windows-x86_64.txt
+meson compile -C build-windows
+
+# Result: build-windows/ariel.exe
+```
+
+#### Windows Runtime Dependencies
+The Windows build requires these DLLs to be distributed with the executable:
+- GTK4 runtime libraries
+- lilv/serd/sord libraries  
+- JACK for Windows (or ASIO driver)
+- MinGW runtime DLLs
+
+You can create a portable Windows package by copying these dependencies alongside `ariel.exe`.
+
 ### Audio Setup
 
 Ariel requires JACK to be running for audio processing:

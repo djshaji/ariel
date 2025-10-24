@@ -1,6 +1,5 @@
 #include "ariel.h"
 #include <stdio.h>
-#include <dirent.h>
 #include <string.h>
 
 typedef struct {
@@ -50,8 +49,6 @@ static char **
 ariel_probe_available_themes(int *count)
 {
     char **themes = NULL;
-    DIR *dir;
-    struct dirent *entry;
     int theme_count = 0;
     int capacity = 10;
     
@@ -59,13 +56,16 @@ ariel_probe_available_themes(int *count)
     // Allocate initial array
     themes = g_malloc(capacity * sizeof(char*));
     
-    dir = opendir(themes_dir);
+    GError *error = NULL;
+    GDir *dir = g_dir_open(themes_dir, 0, &error);
+    
     if (dir) {
-        while ((entry = readdir(dir)) != NULL) {
+        const char *filename;
+        while ((filename = g_dir_read_name(dir)) != NULL) {
             // Check if it's a CSS file
-            if (g_str_has_suffix(entry->d_name, ".css")) {
+            if (g_str_has_suffix(filename, ".css")) {
                 // Remove .css extension for display name
-                char *theme_name = g_strndup(entry->d_name, strlen(entry->d_name) - 4);
+                char *theme_name = g_strndup(filename, strlen(filename) - 4);
                 
                 // Resize array if needed
                 if (theme_count >= capacity) {
@@ -77,7 +77,7 @@ ariel_probe_available_themes(int *count)
                 theme_count++;
             }
         }
-        closedir(dir);
+        g_dir_close(dir);
     }
     
     g_free(themes_dir);

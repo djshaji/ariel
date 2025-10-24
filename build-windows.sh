@@ -1,0 +1,64 @@
+#!/bin/bash
+
+# Build script for Windows cross-compilation
+# Requires x86_64-w64-mingw32-gcc toolchain
+
+set -e
+
+echo "Building Ariel for Windows using MinGW-w64..."
+
+# Check if cross-compiler is available
+if ! command -v x86_64-w64-mingw32-gcc &> /dev/null; then
+    echo "Error: x86_64-w64-mingw32-gcc not found!"
+    echo "Please install MinGW-w64 cross-compiler:"
+    echo "  Ubuntu/Debian: sudo apt install gcc-mingw-w64-x86-64"
+    echo "  Fedora: sudo dnf install mingw64-gcc"
+    echo "  Arch: sudo pacman -S mingw-w64-gcc"
+    exit 1
+fi
+
+# Check if Windows libraries are available
+if [ ! -d "win32" ] || [ ! -f "win32/liblilv-0.dll" ]; then
+    echo "Error: Windows libraries not found in win32/ directory!"
+    echo "Please ensure lilv and its dependencies are available in win32/"
+    exit 1
+fi
+
+echo "Found Windows libraries in win32/ directory"
+echo "Available libraries:"
+ls -la win32/*.dll
+
+# Create build directory for Windows
+BUILDDIR="build-windows"
+if [ -d "$BUILDDIR" ]; then
+    echo "Cleaning existing Windows build directory..."
+    rm -rf "$BUILDDIR"
+fi
+
+echo "Setting up Windows build directory..."
+# Add our win32 directory to PKG_CONFIG_PATH, along with mingw system path
+MINGW_PKG_CONFIG_PATH="/usr/x86_64-w64-mingw32/sys-root/mingw/lib/pkgconfig"
+export PKG_CONFIG_PATH="$(pwd)/win32:$MINGW_PKG_CONFIG_PATH"
+echo "PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
+meson setup "$BUILDDIR" --cross-file cross/windows-x86_64.txt
+
+echo "Building for Windows..."
+meson compile -C "$BUILDDIR"
+
+if [ $? -eq 0 ]; then
+    echo "✅ Windows build successful!"
+    echo "Executable: $BUILDDIR/ariel.exe"
+    
+    # Show file info
+    file "$BUILDDIR/ariel.exe"
+    
+    # Optional: Strip symbols to reduce size
+    if command -v x86_64-w64-mingw32-strip &> /dev/null; then
+        echo "Stripping debug symbols..."
+        x86_64-w64-mingw32-strip "$BUILDDIR/ariel.exe"
+        echo "Final executable size: $(du -h "$BUILDDIR/ariel.exe" | cut -f1)"
+    fi
+else
+    echo "❌ Windows build failed!"
+    exit 1
+fi

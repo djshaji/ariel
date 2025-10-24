@@ -1,0 +1,10 @@
+prefix=${pcfiledir}
+includedir=${prefix}
+libdir=${prefix}
+
+Name: Zix
+Description: Lightweight C library of portability wrappers and data structures
+Version: 0.6.2
+Libs: -L${libdir} -lzix-0
+Libs.private: -pthread
+Cflags: -I${includedir}/zix-0

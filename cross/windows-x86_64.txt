@@ -1,0 +1,26 @@
+[binaries]
+c = 'x86_64-w64-mingw32-gcc'
+cpp = 'x86_64-w64-mingw32-g++'
+ar = 'x86_64-w64-mingw32-ar'
+strip = 'x86_64-w64-mingw32-strip'
+pkg-config = 'x86_64-w64-mingw32-pkg-config'
+exe_wrapper = 'wine64'
+
+[properties]
+pkg_config_libdir = ''
+
+[built-in options]
+c_args = ['-DWIN32', '-D_WIN32_WINNT=0x0601']
+c_link_args = ['-static-libgcc']
+
+[host_machine]
+system = 'windows'
+cpu_family = 'x86_64'
+cpu = 'x86_64'
+endian = 'little'
+
+[target_machine]
+system = 'windows'
+cpu_family = 'x86_64'
+cpu = 'x86_64'
+endian = 'little'

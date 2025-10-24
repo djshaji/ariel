@@ -31,10 +31,15 @@ cp "$BUILDDIR/ariel.exe" "$PACKAGEDIR/"
 echo "Copying required DLLs..."
 
 # Copy project-specific Windows libraries first
-echo "Copying project lilv libraries..."
-if [ -d "win32" ]; then
-    cp win32/*.dll "$PACKAGEDIR/"
-    echo "  Copied lilv and dependencies from win32/"
+echo "Copying project DLL libraries..."
+if [ -d "win32/bin" ]; then
+    # Copy DLLs from win32/bin directory
+    find win32/bin -name "*.dll" -exec cp {} "$PACKAGEDIR/" \; 2>/dev/null || true
+    echo "  Copied DLLs from win32/bin/"
+elif [ -d "win32" ]; then
+    # Fallback: look for DLLs in win32 root (legacy structure)
+    find win32 -maxdepth 1 -name "*.dll" -exec cp {} "$PACKAGEDIR/" \; 2>/dev/null || true
+    echo "  Copied DLLs from win32/ (legacy structure)"
 fi
 
 # Function to copy DLL and its dependencies

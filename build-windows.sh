@@ -18,15 +18,25 @@ if ! command -v x86_64-w64-mingw32-gcc &> /dev/null; then
 fi
 
 # Check if Windows libraries are available
-if [ ! -d "win32" ] || [ ! -f "win32/liblilv-0.dll" ]; then
+if [ ! -d "win32" ] || [ ! -d "win32/lib" ] || [ ! -d "win32/include" ]; then
     echo "Error: Windows libraries not found in win32/ directory!"
-    echo "Please ensure lilv and its dependencies are available in win32/"
+    echo "Please ensure the win32 directory contains lib/ and include/ subdirectories"
     exit 1
 fi
 
-echo "Found Windows libraries in win32/ directory"
+# Check for essential libraries
+ESSENTIAL_LIBS=("liblilv-0.dll.a" "libserd-0.dll.a" "libsord-0.dll.a" "libsratom-0.dll.a" "libzix-0.dll.a")
+for lib in "${ESSENTIAL_LIBS[@]}"; do
+    if [ ! -f "win32/lib/$lib" ]; then
+        echo "Warning: Essential library $lib not found in win32/lib/"
+    fi
+done
+
+echo "Found Windows libraries in win32/ directory structure"
+echo "Available include directories:"
+ls -la win32/include/ | head -10
 echo "Available libraries:"
-ls -la win32/*.dll
+ls -la win32/lib/lib*.dll.a | head -10
 
 # Create build directory for Windows
 BUILDDIR="build-windows"
@@ -36,10 +46,16 @@ if [ -d "$BUILDDIR" ]; then
 fi
 
 echo "Setting up Windows build directory..."
-# Add our win32 directory to PKG_CONFIG_PATH, along with mingw system path
+# Add our win32/lib/pkgconfig directory to PKG_CONFIG_PATH, along with mingw system path
 MINGW_PKG_CONFIG_PATH="/usr/x86_64-w64-mingw32/sys-root/mingw/lib/pkgconfig"
-export PKG_CONFIG_PATH="$(pwd)/win32:$MINGW_PKG_CONFIG_PATH"
+WIN32_PKG_CONFIG_PATH="$(pwd)/win32/lib/pkgconfig"
+export PKG_CONFIG_PATH="$WIN32_PKG_CONFIG_PATH:$MINGW_PKG_CONFIG_PATH"
 echo "PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
+
+# Set additional environment variables for the win32 directory
+export CFLAGS="-I$(pwd)/win32/include $CFLAGS"
+export LDFLAGS="-L$(pwd)/win32/lib $LDFLAGS"
+
 meson setup "$BUILDDIR" --cross-file cross/windows-x86_64.txt
 
 echo "Building for Windows..."

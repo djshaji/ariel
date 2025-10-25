@@ -1,7 +1,0 @@
-prefix=${pcfiledir}
-includedir=${prefix}
-
-Name: LV2
-Description: LV2 Plugin Standard
-Version: 1.18.10
-Cflags: -I${includedir}

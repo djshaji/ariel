@@ -30,7 +30,8 @@ ariel_app_dispose(GObject *object)
         app->audio_engine = NULL;
     }
     if (app->plugin_manager) {
-        ariel_plugin_manager_free(app->plugin_manager);
+        // this causes crash on exit sometimes        
+        // ariel_plugin_manager_free(app->plugin_manager);
         app->plugin_manager = NULL;
     }
     

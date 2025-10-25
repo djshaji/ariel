@@ -789,6 +789,16 @@ ariel_plugin_manager_new(void)
     
     // Initialize lilv world
     manager->world = lilv_world_new();
+    // TODO: Remove this hardcoded path later, use config instead
+    # ifdef __MINGW64__ || __MINGW32__
+        const char *lv2_path = g_build_filename(g_get_current_dir(), "lv2", NULL);
+        LilvNode* lv2_path_node = lilv_new_file_uri(manager->world, NULL, lv2_path);
+
+        lilv_world_set_option(manager->world, LILV_OPTION_LV2_PATH, lv2_path_node);
+        lilv_node_free(lv2_path_node);
+        g_free ((void *)lv2_path);
+    # endif
+
     lilv_world_load_all(manager->world);
     manager->plugins = lilv_world_get_all_plugins(manager->world);
     

@@ -264,6 +264,11 @@ on_category_changed(G_GNUC_UNUSED GtkDropDown *dropdown, G_GNUC_UNUSED GParamSpe
 static void
 populate_category_dropdown(GtkDropDown *dropdown, ArielPluginManager *manager)
 {
+    if (!dropdown || !manager) {
+        g_warning("Invalid arguments to populate_category_dropdown");
+        return;
+    }
+
     GtkStringList *category_list = gtk_string_list_new(NULL);
     GHashTable *categories = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
     

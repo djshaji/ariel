@@ -10,8 +10,8 @@ exe_wrapper = 'wine64'
 pkg_config_libdir = ''
 
 [built-in options]
-c_args = ['-DWIN32', '-D_WIN32_WINNT=0x0601', '-I../win32/include']
-c_link_args = ['-static-libgcc', '-L../win32/lib']
+c_args = ['-DWIN32', '-D_WIN32_WINNT=0x0601', '-DCONSOLE_ENABLED', '-I../win32/include']
+c_link_args = ['-static-libgcc', '-mconsole', '-L../win32/lib']
 
 [host_machine]
 system = 'windows'

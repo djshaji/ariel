@@ -30,6 +30,18 @@ on_plugin_row_activated(GtkListView *list_view, guint position, ArielWindow *win
     ArielPluginManager *plugin_manager = ariel_app_get_plugin_manager(window->app);
     ArielAudioEngine *engine = ariel_app_get_audio_engine(window->app);
     
+    if (!plugin_manager) {
+        g_warning("Cannot load plugin - plugin manager not available");
+        g_object_unref(plugin_info);
+        return;
+    }
+    
+    if (!engine) {
+        g_warning("Cannot load plugin - audio engine not available");
+        g_object_unref(plugin_info);
+        return;
+    }
+    
     // Check if audio engine is running
     if (!engine->active) {
         g_warning("Cannot load plugin - audio engine is not running");
@@ -95,7 +107,13 @@ ariel_create_plugin_list(ArielWindow *window)
     GtkWidget *category_dropdown = gtk_drop_down_new(NULL, NULL);
     gtk_widget_set_size_request(category_dropdown, 150, -1);
     ArielPluginManager *plugin_manager = ariel_app_get_plugin_manager(window->app);
-    populate_category_dropdown(GTK_DROP_DOWN(category_dropdown), plugin_manager);
+    if (plugin_manager) {
+        populate_category_dropdown(GTK_DROP_DOWN(category_dropdown), plugin_manager);
+    } else {
+        g_warning("Plugin manager not available - skipping category dropdown population");
+        // Add a placeholder entry
+        gtk_drop_down_set_model(GTK_DROP_DOWN(category_dropdown), NULL);
+    }
     gtk_box_append(GTK_BOX(filter_box), category_dropdown);
     
     gtk_box_append(GTK_BOX(main_box), filter_box);

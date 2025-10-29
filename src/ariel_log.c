@@ -28,6 +28,21 @@ ariel_log_impl(ArielLogLevel level, const char* file, int line, const char* func
         return;
     }
     
+#ifdef G_OS_WIN32
+    // Simplified Windows logging to avoid format string issues
+    printf("[ARIEL] %s() - ", func ? func : "unknown");
+    
+    if (format) {
+        va_list args;
+        va_start(args, format);
+        vprintf(format, args);
+        va_end(args);
+    }
+    printf("\n");
+    fflush(stdout);
+    return;
+#endif
+    
     // Get current time
     time_t now;
     struct tm* timeinfo;
@@ -35,7 +50,11 @@ ariel_log_impl(ArielLogLevel level, const char* file, int line, const char* func
     
     time(&now);
     timeinfo = localtime(&now);
-    strftime(timestamp, sizeof(timestamp), "%H:%M:%S", timeinfo);
+    if (timeinfo) {
+        strftime(timestamp, sizeof(timestamp), "%H:%M:%S", timeinfo);
+    } else {
+        strcpy(timestamp, "??:??:??");
+    }
     
     // Extract just the filename from full path
     const char* filename = strrchr(file, '/');
@@ -44,6 +63,9 @@ ariel_log_impl(ArielLogLevel level, const char* file, int line, const char* func
     } else {
         filename = file; // No path separator found
     }
+    
+    if (!filename) filename = "unknown";
+    if (!func) func = "unknown";
     
     // Print log header with timestamp, level, location
     printf("[%s] %s %s:%d %s() - ", 

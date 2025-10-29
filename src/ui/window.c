@@ -1,9 +1,28 @@
 #include "ariel.h"
+#ifdef _WIN32
+#include <windows.h>
+#include <stdint.h>
+#endif
 
 ArielWindow *
 ariel_window_new(ArielApp *app)
 {
     ArielWindow *window;
+    
+#ifdef _WIN32
+    // Windows-specific validation
+    if (!app) {
+        g_critical("ariel_window_new called with NULL app");
+        return NULL;
+    }
+    
+    if (!ARIEL_IS_APP(app)) {
+        g_critical("ariel_window_new called with invalid ArielApp object");
+        return NULL;
+    }
+    
+    g_print("Creating window with validated ArielApp: %p\n", app);
+#endif
     
     window = g_object_new(GTK_TYPE_APPLICATION_WINDOW,
                           "application", app,
@@ -11,8 +30,25 @@ ariel_window_new(ArielApp *app)
                           "default-width", 1200,
                           "default-height", 800,
                           NULL);
+    
+    if (!window) {
+        g_critical("Failed to create application window");
+        return NULL;
+    }
                           
     window->app = app;
+    
+#ifdef _WIN32
+    // Verify the assignment worked
+    if (window->app != app) {
+        g_critical("Window app assignment failed");
+        g_object_unref(window);
+        return NULL;
+    }
+    
+    g_print("Window app assignment verified: %p -> %p\n", window, window->app);
+#endif
+    
     ariel_window_setup_ui(window);
 
     gtk_window_maximize(GTK_WINDOW(window));

@@ -5,10 +5,24 @@ ArielAudioEngine *
 ariel_audio_engine_new(void)
 {
     ArielAudioEngine *engine = g_malloc0(sizeof(ArielAudioEngine));
+    if (!engine) {
+        ARIEL_ERROR("Failed to allocate memory for audio engine");
+        return NULL;
+    }
+    
     engine->active = FALSE;
     engine->sample_rate = 44100.0f;
     engine->buffer_size = 1024;
     engine->plugin_manager = NULL;
+    engine->client = NULL;
+    
+    // Initialize port arrays to NULL
+    for (int i = 0; i < 2; i++) {
+        engine->input_ports[i] = NULL;
+        engine->output_ports[i] = NULL;
+    }
+    
+    ARIEL_INFO("Audio engine created successfully");
     return engine;
 }
 
@@ -106,7 +120,15 @@ ariel_audio_engine_free(ArielAudioEngine *engine)
 void
 ariel_audio_engine_set_plugin_manager(ArielAudioEngine *engine, ArielPluginManager *manager)
 {
-    if (engine) {
-        engine->plugin_manager = manager;
+    if (!engine) {
+        ARIEL_ERROR("Audio engine is NULL in set_plugin_manager");
+        return;
     }
+    
+    if (!manager) {
+        ARIEL_WARN("Plugin manager is NULL in set_plugin_manager");
+    }
+    
+    engine->plugin_manager = manager;
+    ARIEL_INFO("Plugin manager set for audio engine");
 }

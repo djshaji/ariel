@@ -6,7 +6,17 @@ ariel_jack_process_callback(jack_nframes_t nframes, void *arg)
 {
     ArielAudioEngine *engine = (ArielAudioEngine *)arg;
     
-    // Get input and output buffers
+    // Critical NULL checks for real-time audio thread
+    if (!engine) {
+        return 1; // Return error, but don't log (not RT-safe)
+    }
+    
+    if (!engine->input_ports[0] || !engine->input_ports[1] || 
+        !engine->output_ports[0] || !engine->output_ports[1]) {
+        return 1; // Return error if ports not initialized
+    }
+    
+    // Get input and output buffers with additional NULL checks
     jack_default_audio_sample_t *input_L = 
         (jack_default_audio_sample_t *)jack_port_get_buffer(engine->input_ports[0], nframes);
     jack_default_audio_sample_t *input_R = 
@@ -15,6 +25,11 @@ ariel_jack_process_callback(jack_nframes_t nframes, void *arg)
         (jack_default_audio_sample_t *)jack_port_get_buffer(engine->output_ports[0], nframes);
     jack_default_audio_sample_t *output_R = 
         (jack_default_audio_sample_t *)jack_port_get_buffer(engine->output_ports[1], nframes);
+    
+    // Verify buffers are valid
+    if (!output_L || !output_R) {
+        return 1; // Can't proceed without output buffers
+    }
     
     // Process worker responses (must be done in audio thread context)
     if (engine->plugin_manager && engine->plugin_manager->worker_schedule) {

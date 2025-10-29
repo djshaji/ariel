@@ -160,20 +160,50 @@ ArielWorkerSchedule *
 ariel_worker_schedule_new(void)
 {
     ArielWorkerSchedule *worker = g_malloc0(sizeof(ArielWorkerSchedule));
+    if (!worker) {
+        ARIEL_ERROR("Failed to allocate memory for worker schedule");
+        return NULL;
+    }
     
-    // Create thread pool with 2 worker threads
+    // Create thread pool with 2 worker threads with error checking
+    GError *error = NULL;
     worker->thread_pool = g_thread_pool_new(ariel_worker_thread_func,
                                            worker,
                                            2, // max threads
                                            FALSE, // exclusive
-                                           NULL);
+                                           &error);
     
+    if (!worker->thread_pool) {
+        ARIEL_ERROR("Failed to create thread pool: %s", error ? error->message : "Unknown error");
+        if (error) g_error_free(error);
+        g_free(worker);
+        return NULL;
+    }
+    
+    // Initialize mutexes and queues with error checking
     g_mutex_init(&worker->work_mutex);
     worker->work_queue = g_queue_new();
+    if (!worker->work_queue) {
+        ARIEL_ERROR("Failed to create work queue");
+        g_thread_pool_free(worker->thread_pool, FALSE, TRUE);
+        g_mutex_clear(&worker->work_mutex);
+        g_free(worker);
+        return NULL;
+    }
+    
     g_mutex_init(&worker->response_mutex);
     worker->response_queue = g_queue_new();
+    if (!worker->response_queue) {
+        ARIEL_ERROR("Failed to create response queue");
+        g_queue_free(worker->work_queue);
+        g_thread_pool_free(worker->thread_pool, FALSE, TRUE);
+        g_mutex_clear(&worker->work_mutex);
+        g_mutex_clear(&worker->response_mutex);
+        g_free(worker);
+        return NULL;
+    }
     
-    g_print("Created LV2 worker schedule with thread pool\n");
+    ARIEL_INFO("Created LV2 worker schedule with thread pool");
     return worker;
 }
 
@@ -395,9 +425,28 @@ ArielURIDMap *
 ariel_urid_map_new(void)
 {
     ArielURIDMap *map = g_malloc0(sizeof(ArielURIDMap));
+    if (!map) {
+        ARIEL_ERROR("Failed to allocate memory for URID map");
+        return NULL;
+    }
+    
     map->uri_to_id = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+    if (!map->uri_to_id) {
+        ARIEL_ERROR("Failed to create URI to ID hash table");
+        g_free(map);
+        return NULL;
+    }
+    
     map->id_to_uri = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, g_free);
+    if (!map->id_to_uri) {
+        ARIEL_ERROR("Failed to create ID to URI hash table");
+        g_hash_table_destroy(map->uri_to_id);
+        g_free(map);
+        return NULL;
+    }
+    
     map->next_id = 1; // Start from 1, as 0 is reserved for "no value"
+    ARIEL_INFO("URID map created successfully");
     return map;
 }
 
@@ -759,11 +808,15 @@ ArielPluginManager *
 ariel_plugin_manager_new(void)
 {
     ArielPluginManager *manager = g_malloc0(sizeof(ArielPluginManager));
+    if (!manager) {
+        ARIEL_ERROR("Failed to allocate memory for plugin manager");
+        return NULL;
+    }
     
     // Initialize configuration
     manager->config = ariel_config_new();
     if (!manager->config) {
-        g_warning("Failed to initialize configuration");
+        ARIEL_ERROR("Failed to initialize configuration");
         g_free(manager);
         return NULL;
     }
@@ -771,7 +824,7 @@ ariel_plugin_manager_new(void)
     // Initialize URID map
     manager->urid_map = ariel_urid_map_new();
     if (!manager->urid_map) {
-        g_warning("Failed to initialize URID map");
+        ARIEL_ERROR("Failed to initialize URID map");
         ariel_config_free(manager->config);
         g_free(manager);
         return NULL;
@@ -780,27 +833,55 @@ ariel_plugin_manager_new(void)
     // Initialize worker schedule
     manager->worker_schedule = ariel_worker_schedule_new();
     if (!manager->worker_schedule) {
-        g_warning("Failed to initialize worker schedule");
+        ARIEL_ERROR("Failed to initialize worker schedule");
         ariel_urid_map_free(manager->urid_map);
         ariel_config_free(manager->config);
         g_free(manager);
         return NULL;
     }
     
-    // Initialize lilv world
+    // Initialize lilv world with error checking
     manager->world = lilv_world_new();
-    // TODO: Remove this hardcoded path later, use config instead
+    if (!manager->world) {
+        ARIEL_ERROR("Failed to create lilv world");
+        ariel_worker_schedule_free(manager->worker_schedule);
+        ariel_urid_map_free(manager->urid_map);
+        ariel_config_free(manager->config);
+        g_free(manager);
+        return NULL;
+    }
+    
+    // Windows-specific LV2 path setup with error checking
     # ifdef __MINGW64__ || __MINGW32__
-        const char *lv2_path = g_build_filename(g_get_current_dir(), "lv2", NULL);
-        LilvNode* lv2_path_node = lilv_new_file_uri(manager->world, NULL, lv2_path);
-
-        lilv_world_set_option(manager->world, LILV_OPTION_LV2_PATH, lv2_path_node);
-        lilv_node_free(lv2_path_node);
-        g_free ((void *)lv2_path);
+        const char *current_dir = g_get_current_dir();
+        if (current_dir) {
+            const char *lv2_path = g_build_filename(current_dir, "lv2", NULL);
+            if (lv2_path) {
+                LilvNode* lv2_path_node = lilv_new_file_uri(manager->world, NULL, lv2_path);
+                if (lv2_path_node) {
+                    lilv_world_set_option(manager->world, LILV_OPTION_LV2_PATH, lv2_path_node);
+                    lilv_node_free(lv2_path_node);
+                    ARIEL_INFO("Set Windows LV2 path: %s", lv2_path);
+                } else {
+                    ARIEL_WARN("Failed to create LV2 path URI node for Windows");
+                }
+                g_free((void *)lv2_path);
+            }
+            g_free((void *)current_dir);
+        } else {
+            ARIEL_WARN("Failed to get current directory for Windows LV2 path");
+        }
     # endif
 
+    // Load LV2 plugins with error handling
+    ARIEL_INFO("Loading LV2 plugins...");
     lilv_world_load_all(manager->world);
     manager->plugins = lilv_world_get_all_plugins(manager->world);
+    
+    if (!manager->plugins) {
+        ARIEL_WARN("No LV2 plugins found or failed to load plugins");
+        // Continue anyway - this is not fatal
+    }
     
     // Create list stores for UI
     manager->plugin_store = g_list_store_new(ARIEL_TYPE_PLUGIN_INFO);

@@ -14,9 +14,22 @@ G_DEFINE_FINAL_TYPE(ArielApp, ariel_app, GTK_TYPE_APPLICATION)
 static void
 ariel_app_init(ArielApp *app)
 {
-    // Initialize audio engine and plugin manager
+    // Initialize audio engine and plugin manager with NULL checks
     app->audio_engine = ariel_audio_engine_new();
-    app->plugin_manager = ariel_plugin_manager_new();// Connect plugin manager to audio engine for real-time processing\n    
+    if (!app->audio_engine) {
+        ARIEL_ERROR("Failed to initialize audio engine");
+        return;
+    }
+    
+    app->plugin_manager = ariel_plugin_manager_new();
+    if (!app->plugin_manager) {
+        ARIEL_ERROR("Failed to initialize plugin manager");
+        ariel_audio_engine_free(app->audio_engine);
+        app->audio_engine = NULL;
+        return;
+    }
+    
+    // Connect plugin manager to audio engine for real-time processing
     ariel_audio_engine_set_plugin_manager(app->audio_engine, app->plugin_manager);
 }
 
@@ -44,10 +57,25 @@ ariel_app_activate(GApplication *application)
     ArielApp *app = ARIEL_APP(application);
     ArielWindow *window;
     
+    if (!app) {
+        ARIEL_ERROR("Application is NULL during activation");
+        return;
+    }
+    
+    if (!app->audio_engine || !app->plugin_manager) {
+        ARIEL_ERROR("Audio engine or plugin manager not initialized");
+        return;
+    }
+    
     // Load custom CSS if available
     ariel_load_custom_css();
     
     window = ariel_window_new(app);
+    if (!window) {
+        ARIEL_ERROR("Failed to create main window");
+        return;
+    }
+    
     gtk_window_present(GTK_WINDOW(window));
 }
 
@@ -84,6 +112,12 @@ ariel_app_get_plugin_manager(ArielApp *app)
 void
 ariel_load_custom_css(void)
 {
+    // Add safety check for GTK initialization
+    if (!gtk_is_initialized()) {
+        ARIEL_WARN("GTK not initialized yet, skipping CSS loading");
+        return;
+    }
+    
     GdkDisplay *display = gdk_display_get_default();
     if (!display) {
         ARIEL_ERROR("Failed to get default display for CSS loading");

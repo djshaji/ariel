@@ -6,6 +6,12 @@ typedef struct {
     ArielWindow *window;
     GtkDropDown *theme_dropdown;
     GListStore *theme_store;
+#ifdef _WIN32
+    GtkDropDown *input_device_dropdown;
+    GtkDropDown *output_device_dropdown;
+    GListStore *input_device_store;
+    GListStore *output_device_store;
+#endif
 } ArielSettingsData;
 
 void ariel_set_default_theme () ;
@@ -15,6 +21,10 @@ settings_data_free(ArielSettingsData *data)
 {
     if (data) {
         g_object_unref(data->theme_store);
+#ifdef _WIN32
+        if (data->input_device_store) g_object_unref(data->input_device_store);
+        if (data->output_device_store) g_object_unref(data->output_device_store);
+#endif
         g_free(data);
     }
 }
@@ -338,6 +348,59 @@ ariel_show_settings_dialog(ArielWindow *window)
     // Set initial selection to saved preference
     char *saved_theme = ariel_load_theme_preference();
     guint initial_selection = 0;
+
+#ifdef _WIN32
+    // Audio device selection for Windows WASAPI
+    int current_row = 1;
+    
+    // Audio input device selection
+    GtkWidget *input_label = gtk_label_new("Input Device:");
+    gtk_widget_set_halign(input_label, GTK_ALIGN_START);
+    gtk_grid_attach(GTK_GRID(grid), input_label, 0, current_row, 1, 1);
+    
+    data->input_device_store = g_list_store_new(GTK_TYPE_STRING_OBJECT);
+    GList *input_devices = ariel_wasapi_enumerate_devices(TRUE);
+    for (GList *item = input_devices; item != NULL; item = item->next) {
+        GtkStringObject *string_obj = gtk_string_object_new((char*)item->data);
+        g_list_store_append(data->input_device_store, string_obj);
+        g_object_unref(string_obj);
+    }
+    
+    data->input_device_dropdown = GTK_DROP_DOWN(gtk_drop_down_new(G_LIST_MODEL(data->input_device_store), NULL));
+    gtk_widget_set_hexpand(GTK_WIDGET(data->input_device_dropdown), TRUE);
+    gtk_grid_attach(GTK_GRID(grid), GTK_WIDGET(data->input_device_dropdown), 1, current_row, 1, 1);
+    current_row++;
+    
+    // Free input devices list
+    for (GList *item = input_devices; item != NULL; item = item->next) {
+        g_free(item->data);
+    }
+    g_list_free(input_devices);
+    
+    // Audio output device selection
+    GtkWidget *output_label = gtk_label_new("Output Device:");
+    gtk_widget_set_halign(output_label, GTK_ALIGN_START);
+    gtk_grid_attach(GTK_GRID(grid), output_label, 0, current_row, 1, 1);
+    
+    data->output_device_store = g_list_store_new(GTK_TYPE_STRING_OBJECT);
+    GList *output_devices = ariel_wasapi_enumerate_devices(FALSE);
+    for (GList *item = output_devices; item != NULL; item = item->next) {
+        GtkStringObject *string_obj = gtk_string_object_new((char*)item->data);
+        g_list_store_append(data->output_device_store, string_obj);
+        g_object_unref(string_obj);
+    }
+    
+    data->output_device_dropdown = GTK_DROP_DOWN(gtk_drop_down_new(G_LIST_MODEL(data->output_device_store), NULL));
+    gtk_widget_set_hexpand(GTK_WIDGET(data->output_device_dropdown), TRUE);
+    gtk_grid_attach(GTK_GRID(grid), GTK_WIDGET(data->output_device_dropdown), 1, current_row, 1, 1);
+    current_row++;
+    
+    // Free output devices list
+    for (GList *item = output_devices; item != NULL; item = item->next) {
+        g_free(item->data);
+    }
+    g_list_free(output_devices);
+#endif
     if (saved_theme) {
         for (i = 0; i < theme_count; i++) {
             if (g_strcmp0(themes[i], saved_theme) == 0) {
@@ -354,30 +417,46 @@ ariel_show_settings_dialog(ArielWindow *window)
     // Connect theme change signal
     g_signal_connect(data->theme_dropdown, "notify::selected",
                      G_CALLBACK(on_theme_changed), data);
+
+#ifdef _WIN32
+    // Audio settings section starts after WASAPI device selection
+    int audio_settings_row = current_row + 1;
+#else
+    // Audio settings section starts after theme selection
+    int audio_settings_row = 1;
+#endif
     
     // Add more settings sections here in the future
     GtkWidget *audio_label = gtk_label_new("Audio Settings:");
     gtk_widget_set_halign(audio_label, GTK_ALIGN_START);
     gtk_widget_add_css_class(audio_label, "heading");
-    gtk_grid_attach(GTK_GRID(grid), audio_label, 0, 1, 2, 1);
+    gtk_grid_attach(GTK_GRID(grid), audio_label, 0, audio_settings_row, 2, 1);
     
     GtkWidget *sample_rate_label = gtk_label_new("Sample Rate:");
     gtk_widget_set_halign(sample_rate_label, GTK_ALIGN_START);
-    gtk_grid_attach(GTK_GRID(grid), sample_rate_label, 0, 2, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), sample_rate_label, 0, audio_settings_row + 1, 1, 1);
     
+#ifdef _WIN32
+    GtkWidget *sample_rate_info = gtk_label_new("Determined by WASAPI");
+#else
     GtkWidget *sample_rate_info = gtk_label_new("Determined by JACK");
+#endif
     gtk_widget_set_halign(sample_rate_info, GTK_ALIGN_START);
     gtk_widget_add_css_class(sample_rate_info, "dim-label");
-    gtk_grid_attach(GTK_GRID(grid), sample_rate_info, 1, 2, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), sample_rate_info, 1, audio_settings_row + 1, 1, 1);
     
     GtkWidget *buffer_size_label = gtk_label_new("Buffer Size:");
     gtk_widget_set_halign(buffer_size_label, GTK_ALIGN_START);
-    gtk_grid_attach(GTK_GRID(grid), buffer_size_label, 0, 3, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), buffer_size_label, 0, audio_settings_row + 2, 1, 1);
     
+#ifdef _WIN32
+    GtkWidget *buffer_size_info = gtk_label_new("Determined by WASAPI");
+#else
     GtkWidget *buffer_size_info = gtk_label_new("Determined by JACK");
+#endif
     gtk_widget_set_halign(buffer_size_info, GTK_ALIGN_START);
     gtk_widget_add_css_class(buffer_size_info, "dim-label");
-    gtk_grid_attach(GTK_GRID(grid), buffer_size_info, 1, 3, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), buffer_size_info, 1, audio_settings_row + 2, 1, 1);
     
     // Add grid to content area
     gtk_box_append(GTK_BOX(content_area), grid);

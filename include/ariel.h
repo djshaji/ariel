@@ -257,4 +257,11 @@ LilvInstance *ariel_active_plugin_get_instance(ArielActivePlugin *plugin);
 int ariel_jack_process_callback(jack_nframes_t nframes, void *arg);
 void ariel_jack_shutdown_callback(void *arg);
 
+// WASAPI support (Windows only)
+#ifdef _WIN32
+gboolean ariel_wasapi_start(ArielAudioEngine *engine);
+void ariel_wasapi_stop(ArielAudioEngine *engine);
+GList *ariel_wasapi_enumerate_devices(gboolean input_devices);
+#endif
+
 #endif // ARIEL_H

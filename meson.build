@@ -92,11 +92,26 @@ sources = [
   'src/audio/active_plugin.c'  
 ]
 
+# Add Windows-specific WASAPI source
+if is_windows
+  sources += ['src/audio/wasapi_client.c']
+endif
+
+# Windows audio dependencies
+if is_windows
+  wasapi_dep = declare_dependency(
+    link_args: ['-lole32', '-luuid', '-lwinmm', '-lksuser']
+  )
+  all_deps = [gtk4_dep, lilv_dep, jack_dep, wasapi_dep]
+else
+  all_deps = [gtk4_dep, lilv_dep, jack_dep]
+endif
+
 # Build executable
 exe_name = is_windows ? 'ariel.exe' : 'ariel'
 executable(exe_name,
   sources,
-  dependencies : [gtk4_dep, lilv_dep, jack_dep],
+  dependencies : all_deps,
   include_directories : inc,
   install : true,
   win_subsystem : is_windows ? 'windows' : 'console'

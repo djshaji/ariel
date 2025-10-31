@@ -29,11 +29,16 @@ ariel_audio_engine_new(void)
 gboolean
 ariel_audio_engine_start(ArielAudioEngine *engine)
 {
-    jack_status_t status;
-    
     if (engine->active) {
         return TRUE; // Already active
     }
+    
+#ifdef _WIN32
+    // Use WASAPI on Windows
+    return ariel_wasapi_start(engine);
+#else
+    // Use JACK on Linux/Unix
+    jack_status_t status;
     
     // Open JACK client
     engine->client = jack_client_open("ariel", JackNullOption, &status);
@@ -89,20 +94,28 @@ ariel_audio_engine_start(ArielAudioEngine *engine)
     g_print("Audio engine started successfully\n");
     
     return TRUE;
+#endif
 }
 
 void
 ariel_audio_engine_stop(ArielAudioEngine *engine)
 {
-    if (!engine->active || !engine->client) {
+    if (!engine->active) {
         return;
     }
     
-    jack_client_close(engine->client);
-    engine->client = NULL;
+#ifdef _WIN32
+    // Use WASAPI on Windows
+    ariel_wasapi_stop(engine);
+#else
+    // Use JACK on Linux/Unix
+    if (engine->client) {
+        jack_client_close(engine->client);
+        engine->client = NULL;
+    }
     engine->active = FALSE;
-    
     g_print("Audio engine stopped\n");
+#endif
 }
 
 void

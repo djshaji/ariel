@@ -1,0 +1,110 @@
+06b0:fixme:reg:NtNotifyChangeMultipleKeys Unimplemented optional parameter
+06b0:fixme:reg:NtNotifyChangeMultipleKeys Unimplemented optional parameter
+06b0:fixme:reg:NtNotifyChangeMultipleKeys Unimplemented optional parameter
+06b0:fixme:reg:NtNotifyChangeMultipleKeys Unimplemented optional parameter
+06b0:fixme:reg:NtNotifyChangeMultipleKeys Unimplemented optional parameter
+06b4:fixme:combase:RoActivateInstance (0000000000EEFA60, 0000000000EEF9C8): semi-stub
+06b4:fixme:combase:RoGetActivationFactory (L"Windows.Management.Deployment.PackageManager", {00000035-0000-0000-c000-000000000046}, 0000000000EEF818): semi-stub
+06b4:fixme:appx:package_manager_FindPackagesByUserSecurityId iface 00000000003BA020, sid L"", packages 0000000000EEF9D8 stub!
+Console error test: stderr working
+
+(ariel.exe:1708): Gdk-WARNING **: 21:58:37.242: Failed to get device node property {A45C254E-DF1C-4EFD-8020-67D146A850E0},13 size: Element not found.
+
+(ariel.exe:1708): Gdk-WARNING **: 21:58:37.242: Failed to get device node property {B725F130-47EF-101A-A5F1-02608C9EEBAC},10 size: Element not found.
+
+(ariel.exe:1708): Gdk-WARNING **: 21:58:37.243: Failed to get device node property {A45C254E-DF1C-4EFD-8020-67D146A850E0},13 size: Element not found.
+
+(ariel.exe:1708): Gdk-WARNING **: 21:58:37.243: Failed to get device node property {B725F130-47EF-101A-A5F1-02608C9EEBAC},10 size: Element not found.
+MESA-INTEL: warning: Haswell Vulkan support is incomplete
+06b0:fixme:ntdll:NtQuerySystemInformation info_class SYSTEM_PERFORMANCE_INFORMATION
+06b0:fixme:dxgi:DXGID3D10CreateDevice Ignoring flags 0x20.
+MESA-INTEL: warning: Haswell Vulkan support is incomplete
+06b0:fixme:dxgi:DXGID3D10CreateDevice Ignoring flags 0x20.
+06b0:fixme:dcomp:DCompositionCreateDevice 0000000001DFB550, {c37ea93a-e7aa-450d-b16f-9746cb0407f3}, 0000000000CBFEF8.
+
+(ariel.exe:1708): Gdk-CRITICAL **: 21:58:37.535: file ../gdk/win32/gdkdisplay-win32.c: line 525 (gdk_win32_display_init_dcomp): DCompositionCreateDevice (dxgi_device, &my_IID_IDCompositionDevice, (void **) &self->dcomp_device) returned -2147467263 (Not implemented.)
+06b0:fixme:keyboard:X11DRV_ActivateKeyboardLayout 0x4090409, 0000: semi-stub!
+
+(ariel.exe:1708): Gdk-WARNING **: 21:58:37.545: Could not query registry key 'SYSTEM\CurrentControlSet\Control\Keyboard Layouts\00000409\Layout File'. Error code: 2
+
+(ariel.exe:1708): Gdk-WARNING **: 21:58:37.545: Could not open registry key 'Keyboard Layout\Substitutes'. Error code: 2
+
+(ariel.exe:1708): Gdk-WARNING **: 21:58:37.545: Failed to load keyboard layout DLL for layout 00000409: (NULL)
+06b0:fixme:keyboard:X11DRV_ActivateKeyboardLayout 0x4090409, 0000: semi-stub!
+lilv_world_set_option(): warning: Unrecognized or invalid option `http://drobilla.net/ns/lilv#lv2-path'
+
+(ariel.exe:1708): Gtk-WARNING **: 21:58:37.583: Theme parser error: default.css:372:7-12: Unknown pseudoclass
+
+(ariel.exe:1708): Gtk-WARNING **: 21:58:37.584: Theme parser warning: default.css:420:9-31: Undefined @media feature 'prefers-reduced-motion'
+
+(ariel.exe:1708): Gtk-WARNING **: 21:58:37.584: Theme parser error: default.css:422:21-22: Junk at end of value for animation
+
+(ariel.exe:1708): Gtk-WARNING **: 21:58:37.584: Theme parser error: default.css:423:22-23: Junk at end of value for transition
+06b0:fixme:process:GetProcessWorkingSetSizeEx (FFFFFFFFFFFFFFFF,000000000021F678,000000000021F680,0000000000000000): stub
+VirtualLock error = 5
+Cannot lock down 107341340 byte memory area (No such file or directory)
+06b0:fixme:manipulation:viewport_AddEventHandler 0000000001E6A500, 00000000001100C4, 0000000004C5C330, 000000000021EB2C
+06b0:fixme:manipulation:viewport_Abandon 0000000001E6A500
+06b0:fixme:manipulation:viewport_AddEventHandler 0000000001E6A500, 00000000001100C4, 0000000004C5C380, 000000000021EB2C
+06b0:fixme:manipulation:viewport_Abandon 0000000001E6A500
+06b0:fixme:manipulation:direct_manip_Activate 0000000001DFEE50, 00000000001100C4
+06b0:fixme:dwmapi:DwmEnableBlurBehindWindow 00000000001100C4 000000000021EB80
+
+(ariel.exe:1708): Gdk-WARNING **: 21:58:37.650: ../gdk/win32/gdksurface-win32.c:240: DwmEnableBlurBehindWindow (00000000001100c4) failed: 80004001
+06b0:fixme:dwrite:dwritefactory_CreateMonitorRenderingParams (0000000000000001): monitor setting ignored
+couldn't load font "emoji Not-Rotated With-Color 10.667px", falling back to "Sans Not-Rotated With-Color 10.667px", expect ugly output.couldn't load font "Sans Not-Rotated With-Color 10.667px", falling back to "Sans Not-Rotated With-Color 10.667px", expect ugly output.
+(ariel.exe:1708): Pango-WARNING **: 21:58:37.669: All font fallbacks failed!!!!
+06b0:fixme:dwmapi:DwmGetCompositionTimingInfo (0000000000000000 000000000021F590)
+
+(ariel.exe:1708): Gdk-CRITICAL **: 21:58:44.722: gdk_win32_surface_set_dcomp_content: assertion 'dcomp_device != NULL' failed
+06b0:fixme:manipulation:direct_manip_Deactivate 0000000001DFEE50, 00000000001100C4
+06fc:fixme:console:default_ctrl_handler Terminating process 6ac on event 0
+0704:fixme:reg:NtNotifyChangeMultipleKeys Unimplemented optional parameter
+0704:fixme:reg:NtNotifyChangeMultipleKeys Unimplemented optional parameter
+0704:fixme:reg:NtNotifyChangeMultipleKeys Unimplemented optional parameter
+0704:fixme:reg:NtNotifyChangeMultipleKeys Unimplemented optional parameter
+0704:fixme:reg:NtNotifyChangeMultipleKeys Unimplemented optional parameter
+0708:fixme:combase:RoActivateInstance (0000000000EEFA60, 0000000000EEF9C8): semi-stub
+0708:fixme:combase:RoGetActivationFactory (L"Windows.Management.Deployment.PackageManager", {00000035-0000-0000-c000-000000000046}, 0000000000EEF818): semi-stub
+0708:fixme:appx:package_manager_FindPackagesByUserSecurityId iface 00000000003BA020, sid L"", packages 0000000000EEF9D8 stub!
+Console error test: stderr working
+
+(ariel.exe:1792): Gdk-WARNING **: 21:58:53.966: Failed to get device node property {A45C254E-DF1C-4EFD-8020-67D146A850E0},13 size: Element not found.
+
+(ariel.exe:1792): Gdk-WARNING **: 21:58:53.967: Failed to get device node property {B725F130-47EF-101A-A5F1-02608C9EEBAC},10 size: Element not found.
+
+(ariel.exe:1792): Gdk-WARNING **: 21:58:53.967: Failed to get device node property {A45C254E-DF1C-4EFD-8020-67D146A850E0},13 size: Element not found.
+
+(ariel.exe:1792): Gdk-WARNING **: 21:58:53.967: Failed to get device node property {B725F130-47EF-101A-A5F1-02608C9EEBAC},10 size: Element not found.
+MESA-INTEL: warning: Haswell Vulkan support is incomplete
+0704:fixme:ntdll:NtQuerySystemInformation info_class SYSTEM_PERFORMANCE_INFORMATION
+0704:fixme:dxgi:DXGID3D10CreateDevice Ignoring flags 0x20.
+MESA-INTEL: warning: Haswell Vulkan support is incomplete
+0704:fixme:dxgi:DXGID3D10CreateDevice Ignoring flags 0x20.
+0704:fixme:dcomp:DCompositionCreateDevice 0000000001DF9E30, {c37ea93a-e7aa-450d-b16f-9746cb0407f3}, 0000000000CBFEF8.
+
+(ariel.exe:1792): Gdk-CRITICAL **: 21:58:54.273: file ../gdk/win32/gdkdisplay-win32.c: line 525 (gdk_win32_display_init_dcomp): DCompositionCreateDevice (dxgi_device, &my_IID_IDCompositionDevice, (void **) &self->dcomp_device) returned -2147467263 (Not implemented.)
+0704:fixme:keyboard:X11DRV_ActivateKeyboardLayout 0x4090409, 0000: semi-stub!
+
+(ariel.exe:1792): Gdk-WARNING **: 21:58:54.283: Could not query registry key 'SYSTEM\CurrentControlSet\Control\Keyboard Layouts\00000409\Layout File'. Error code: 2
+
+(ariel.exe:1792): Gdk-WARNING **: 21:58:54.283: Could not open registry key 'Keyboard Layout\Substitutes'. Error code: 2
+
+(ariel.exe:1792): Gdk-WARNING **: 21:58:54.283: Failed to load keyboard layout DLL for layout 00000409: (NULL)
+0704:fixme:keyboard:X11DRV_ActivateKeyboardLayout 0x4090409, 0000: semi-stub!
+lilv_world_set_option(): warning: Unrecognized or invalid option `http://drobilla.net/ns/lilv#lv2-path'
+
+(ariel.exe:1792): Gtk-WARNING **: 21:58:54.321: Theme parser error: default.css:372:7-12: Unknown pseudoclass
+
+(ariel.exe:1792): Gtk-WARNING **: 21:58:54.322: Theme parser warning: default.css:420:9-31: Undefined @media feature 'prefers-reduced-motion'
+
+(ariel.exe:1792): Gtk-WARNING **: 21:58:54.322: Theme parser error: default.css:422:21-22: Junk at end of value for animation
+
+(ariel.exe:1792): Gtk-WARNING **: 21:58:54.322: Theme parser error: default.css:423:22-23: Junk at end of value for transition
+0704:fixme:process:GetProcessWorkingSetSizeEx (FFFFFFFFFFFFFFFF,000000000021F678,000000000021F680,0000000000000000): stub
+VirtualLock error = 5
+Cannot lock down 107341340 byte memory area (No such file or directory)
+wine: Unhandled page fault on execute access to 0000000000000000 at address 0000000000000000 (thread 0704), starting debugger...
+0748:fixme:dbghelp:elf_search_auxv can't find symbol in module
+0748:fixme:dbghelp:elf_search_auxv can't find symbol in module
+076c:fixme:file:parse_samba_dos_attrib_data Unhandled user.DOSATTRIB extended attribute value.

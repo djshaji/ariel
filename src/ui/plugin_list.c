@@ -72,6 +72,45 @@ on_plugin_row_activated(GtkListView *list_view, guint position, ArielWindow *win
 GtkWidget *
 ariel_create_plugin_list(ArielWindow *window)
 {
+#ifdef _WIN32
+    // Validate window parameter immediately at function entry
+    g_print("ariel_create_plugin_list: ENTRY - validating parameters\n");
+    g_print("  window parameter = %p\n", (void*)window);
+    
+    if (!window) {
+        g_critical("ariel_create_plugin_list: window parameter is NULL!");
+        return NULL;
+    }
+    
+    // Check if window pointer is readable
+    if (IsBadReadPtr(window, sizeof(ArielWindow))) {
+        g_critical("ariel_create_plugin_list: window pointer %p is not readable!", (void*)window);
+        return NULL;
+    }
+    
+    g_print("  window->app field address = %p\n", (void*)&window->app);
+    g_print("  window->app field value = %p\n", (void*)window->app);
+    
+    // Validate app pointer before any use
+    if (!window->app) {
+        g_critical("ariel_create_plugin_list: window->app is NULL!");
+        return gtk_box_new(GTK_ORIENTATION_VERTICAL, 0); // Return empty box to prevent crash
+    }
+    
+    // Check if app pointer is readable
+    if (IsBadReadPtr(window->app, 64)) {
+        g_critical("ariel_create_plugin_list: window->app pointer %p is not readable!", (void*)window->app);
+        return gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    }
+    
+    if (!ARIEL_IS_APP(window->app)) {
+        g_critical("ariel_create_plugin_list: window->app is not a valid ArielApp!");
+        return gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    }
+    
+    g_print("ariel_create_plugin_list: Parameters validated successfully\n");
+#endif
+    
     GtkWidget *main_box;
     GtkWidget *search_entry;
     GtkWidget *scrolled;
@@ -106,7 +145,34 @@ ariel_create_plugin_list(ArielWindow *window)
     // Create category dropdown
     GtkWidget *category_dropdown = gtk_drop_down_new(NULL, NULL);
     gtk_widget_set_size_request(category_dropdown, 150, -1);
+#ifdef _WIN32
+    g_print("About to call ariel_app_get_plugin_manager with window->app = %p\n", (void*)window->app);
+    if (!window->app) {
+        g_critical("window->app is NULL before plugin manager call!");
+        return main_box;
+    }
+#endif
+    ArielApp *app_before_call = window->app;
+#ifdef _WIN32
+    g_print("Storing app pointer before call: %p\n", (void*)app_before_call);
+#endif
     ArielPluginManager *plugin_manager = ariel_app_get_plugin_manager(window->app);
+#ifdef _WIN32
+    g_print("ariel_app_get_plugin_manager returned: %p\n", (void*)plugin_manager);
+    g_print("Checking window->app again after plugin manager call: %p\n", (void*)window->app);
+    g_print("Original app pointer was: %p\n", (void*)app_before_call);
+    
+    if (window->app != app_before_call) {
+        g_critical("CORRUPTION: window->app changed from %p to %p during ariel_app_get_plugin_manager call!", 
+                   (void*)app_before_call, (void*)window->app);
+    }
+    
+    // Verify window->app hasn't been corrupted
+    if (!window->app || !ARIEL_IS_APP(window->app)) {
+        g_critical("window->app was corrupted during plugin manager retrieval!");
+        return gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    }
+#endif
     if (plugin_manager) {
         populate_category_dropdown(GTK_DROP_DOWN(category_dropdown), plugin_manager);
     } else {
@@ -125,19 +191,144 @@ ariel_create_plugin_list(ArielWindow *window)
     gtk_widget_set_size_request(scrolled, 300, -1);
     gtk_widget_set_vexpand(scrolled, TRUE);
     
-    // Create list item factory
+    // Create list item factory with function pointer validation
+#ifdef _WIN32
+    g_print("Creating list item factory...\n");
+#endif
     factory = gtk_signal_list_item_factory_new();
+    if (!factory) {
+        g_critical("Failed to create list item factory!");
+        list_view = gtk_list_view_new(NULL, NULL);
+        gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), list_view);
+        gtk_box_append(GTK_BOX(main_box), scrolled);
+        return main_box;
+    }
+    
+#ifdef _WIN32
+    // Validate function pointers before connecting signals
+    g_print("Validating callback function pointers...\n");
+    g_print("  setup_plugin_list_item = %p\n", (void*)setup_plugin_list_item);
+    g_print("  bind_plugin_list_item = %p\n", (void*)bind_plugin_list_item);
+    
+    if (IsBadCodePtr((FARPROC)setup_plugin_list_item)) {
+        g_critical("setup_plugin_list_item function pointer is invalid!");
+        g_object_unref(factory);
+        list_view = gtk_list_view_new(NULL, NULL);
+        gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), list_view);
+        gtk_box_append(GTK_BOX(main_box), scrolled);
+        return main_box;
+    }
+    
+    if (IsBadCodePtr((FARPROC)bind_plugin_list_item)) {
+        g_critical("bind_plugin_list_item function pointer is invalid!");
+        g_object_unref(factory);
+        list_view = gtk_list_view_new(NULL, NULL);
+        gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), list_view);
+        gtk_box_append(GTK_BOX(main_box), scrolled);
+        return main_box;
+    }
+    
+    g_print("Function pointers validated, connecting signals...\n");
+#endif
+    
     g_signal_connect(factory, "setup", G_CALLBACK(setup_plugin_list_item), NULL);
     g_signal_connect(factory, "bind", G_CALLBACK(bind_plugin_list_item), NULL);
     
-    // Create filter for search functionality
-    // Create filter data structure to pass both widgets
-    GtkWidget **filter_data = g_new(GtkWidget*, 2);
+#ifdef _WIN32
+    g_print("Signals connected successfully\n");
+#endif
+    
+    // Create filter for search functionality - but only if we have a valid plugin manager
+    if (!plugin_manager) {
+        g_warning("No plugin manager available - creating empty list view");
+        // Create empty list view
+        list_view = gtk_list_view_new(NULL, factory);
+        gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), list_view);
+        gtk_box_append(GTK_BOX(main_box), scrolled);
+        return main_box;
+    }
+    
+    // Additional validation for plugin_manager structure
+#ifdef _WIN32
+    if (IsBadReadPtr(plugin_manager, sizeof(ArielPluginManager))) {
+        g_critical("plugin_manager pointer is not readable!");
+        list_view = gtk_list_view_new(NULL, factory);
+        gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), list_view);
+        gtk_box_append(GTK_BOX(main_box), scrolled);
+        return main_box;
+    }
+    
+    if (!plugin_manager->plugin_store) {
+        g_critical("plugin_manager->plugin_store is NULL!");
+        list_view = gtk_list_view_new(NULL, factory);
+        gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), list_view);
+        gtk_box_append(GTK_BOX(main_box), scrolled);
+        return main_box;
+    }
+    
+    if (IsBadReadPtr(plugin_manager->plugin_store, sizeof(GObject))) {
+        g_critical("plugin_manager->plugin_store is not readable!");
+        list_view = gtk_list_view_new(NULL, factory);
+        gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), list_view);
+        gtk_box_append(GTK_BOX(main_box), scrolled);
+        return main_box;
+    }
+    
+    g_print("plugin_manager validation passed, plugin_store = %p\n", (void*)plugin_manager->plugin_store);
+    
+    // Force garbage collection and memory cleanup before allocations
+    g_print("Forcing garbage collection to free memory...\n");
+    // Try to force GC and cleanup
+    for (int i = 0; i < 3; i++) {
+        void *temp = g_try_malloc(1024);
+        if (temp) {
+            g_free(temp);
+        }
+    }
+#endif
+    
+    // Create filter data structure to pass both widgets with memory safety
+#ifdef _WIN32
+    g_print("About to allocate filter_data (16 bytes)...\n");
+#endif
+    GtkWidget **filter_data = g_try_new(GtkWidget*, 2);
+    if (!filter_data) {
+        g_warning("Failed to allocate filter_data - creating simplified list");
+        // Create simple list view without filtering
+        list_view = gtk_list_view_new(GTK_SELECTION_MODEL(gtk_single_selection_new(G_LIST_MODEL(plugin_manager->plugin_store))), factory);
+        gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), list_view);
+        gtk_box_append(GTK_BOX(main_box), scrolled);
+        return main_box;
+    }
+    
     filter_data[0] = search_entry;
     filter_data[1] = category_dropdown;
     
+#ifdef _WIN32
+    g_print("About to create custom filter...\n");
+#endif
     custom_filter = gtk_custom_filter_new(plugin_filter_func, filter_data, g_free);
+    if (!custom_filter) {
+        g_warning("Failed to create custom filter - creating simplified list");
+        g_free(filter_data);
+        list_view = gtk_list_view_new(GTK_SELECTION_MODEL(gtk_single_selection_new(G_LIST_MODEL(plugin_manager->plugin_store))), factory);
+        gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), list_view);
+        gtk_box_append(GTK_BOX(main_box), scrolled);
+        return main_box;
+    }
+    
+#ifdef _WIN32
+    g_print("About to create filter list model...\n");
+#endif
     filter_model = gtk_filter_list_model_new(G_LIST_MODEL(plugin_manager->plugin_store), GTK_FILTER(custom_filter));
+    if (!filter_model) {
+        g_warning("Failed to create filter model - using direct model");
+        g_object_unref(custom_filter);
+        list_view = gtk_list_view_new(GTK_SELECTION_MODEL(gtk_single_selection_new(G_LIST_MODEL(plugin_manager->plugin_store))), factory);
+        gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), list_view);
+        gtk_box_append(GTK_BOX(main_box), scrolled);
+        return main_box;
+    }
     
     // Create selection model with filtered model
     selection_model = GTK_SELECTION_MODEL(
@@ -145,9 +336,32 @@ ariel_create_plugin_list(ArielWindow *window)
     );
     
     // Create list view
+#ifdef _WIN32
+    g_print("Creating list view with selection model %p and factory %p\n", (void*)selection_model, (void*)factory);
+#endif
     list_view = gtk_list_view_new(selection_model, factory);
-    g_signal_connect(list_view, "activate",
-                     G_CALLBACK(on_plugin_row_activated), window);
+    if (!list_view) {
+        g_critical("Failed to create list view!");
+        gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled), gtk_label_new("Plugin list unavailable"));
+        gtk_box_append(GTK_BOX(main_box), scrolled);
+        return main_box;
+    }
+    
+#ifdef _WIN32
+    g_print("Validating activation callback function pointer...\n");
+    g_print("  on_plugin_row_activated = %p\n", (void*)on_plugin_row_activated);
+    
+    if (IsBadCodePtr((FARPROC)on_plugin_row_activated)) {
+        g_critical("on_plugin_row_activated function pointer is invalid!");
+        // Don't connect the callback if it's invalid
+    } else {
+        g_print("Connecting activation callback...\n");
+        g_signal_connect(list_view, "activate", G_CALLBACK(on_plugin_row_activated), window);
+        g_print("Activation callback connected successfully\n");
+    }
+#else
+    g_signal_connect(list_view, "activate", G_CALLBACK(on_plugin_row_activated), window);
+#endif
     
     // Connect search and category functionality
     g_object_set_data(G_OBJECT(search_entry), "filter", custom_filter);

@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifdef G_OS_WIN32
+#ifdef _WIN32
 #include <windows.h>
 #include <io.h>
 #include <fcntl.h>
@@ -39,7 +39,7 @@ ariel_app_init(ArielApp *app)
     app->audio_engine = NULL;
     app->plugin_manager = NULL;
     
-#ifdef G_OS_WIN32
+#ifdef _WIN32
     // On Windows, defer complex initialization to avoid crash during GObject construction
     g_print("Windows detected - deferring complex initialization to activation phase\n");
     return;
@@ -102,7 +102,7 @@ ariel_app_activate(GApplication *application)
         return;
     }
     
-#ifdef G_OS_WIN32
+#ifdef _WIN32
     // On Windows, perform deferred initialization here
     if (!app->audio_engine || !app->plugin_manager) {
         g_print("Performing deferred Windows initialization\n");
@@ -238,11 +238,15 @@ ArielPluginManager *
 ariel_app_get_plugin_manager(ArielApp *app)
 {
 #ifdef _WIN32
+    g_print("ariel_app_get_plugin_manager: ENTRY with app = %p\n", (void*)app);
+    
     // Windows-specific validation - check for NULL and basic pointer validity
     if (!app) {
         g_critical("ariel_app_get_plugin_manager called with NULL app");
         return NULL;
     }
+    
+    g_print("ariel_app_get_plugin_manager: app not NULL, checking range\n");
     
     // Check if pointer looks valid (not obviously corrupted)
     if ((uintptr_t)app < 0x1000 || (uintptr_t)app > 0x7FFFFFFFFFFF) {
@@ -250,32 +254,44 @@ ariel_app_get_plugin_manager(ArielApp *app)
         return NULL;
     }
     
+    g_print("ariel_app_get_plugin_manager: app range valid, checking readability\n");
+    
     // Use IsBadReadPtr to safely check memory accessibility
     if (IsBadReadPtr(app, sizeof(ArielApp))) {
         g_critical("ariel_app_get_plugin_manager: app pointer not readable");
         return NULL;
     }
     
+    g_print("ariel_app_get_plugin_manager: app readable, checking GObject\n");
+    
     // Validate GObject header is accessible
     if (!G_IS_OBJECT(app)) {
         g_critical("ariel_app_get_plugin_manager: app is not a GObject");
         return NULL;
     }
+    
+    g_print("ariel_app_get_plugin_manager: GObject valid, checking ARIEL_IS_APP\n");
 #endif
     
     g_return_val_if_fail(ARIEL_IS_APP(app), NULL);
     
 #ifdef _WIN32
+    g_print("ariel_app_get_plugin_manager: ARIEL_IS_APP passed, checking plugin_manager field\n");
+    
     // Check plugin_manager pointer safely
     if (IsBadReadPtr(&app->plugin_manager, sizeof(void*))) {
         g_critical("ariel_app_get_plugin_manager: cannot access plugin_manager field");
         return NULL;
     }
     
+    g_print("ariel_app_get_plugin_manager: plugin_manager field accessible\n");
+    
     if (!app->plugin_manager) {
         g_critical("ariel_app_get_plugin_manager: plugin_manager is NULL");
         return NULL;
     }
+    
+    g_print("ariel_app_get_plugin_manager: SUCCESS returning %p\n", (void*)app->plugin_manager);
 #endif
     
     return app->plugin_manager;
@@ -376,38 +392,55 @@ main(int argc, char *argv[])
     ArielApp *app;
     int status;
     
-#ifdef G_OS_WIN32
+#ifdef _WIN32
     BOOL console_allocated = FALSE;
 #endif
     
     // Windows-specific initialization safety checks
-#ifdef G_OS_WIN32
+#ifdef _WIN32
     printf("Starting Ariel on Windows platform\n");
+    fflush(stdout);
     
-    // Enable console output for Windows GUI applications
-    // This allows printf/g_print to work in Wine and Windows console
+    // For Wine/debugging, try to attach to parent console first to keep output in same terminal
+    // This prevents creating a separate console window
     
-    if (AllocConsole()) {
-        console_allocated = TRUE;
-        printf("New console allocated\n");
-    } else if (AttachConsole(ATTACH_PARENT_PROCESS)) {
+    if (AttachConsole(ATTACH_PARENT_PROCESS)) {
         console_allocated = TRUE;
         printf("Attached to parent console\n");
+        fflush(stdout);
     } else {
-        // Try to get existing console
+        // Check if we already have a console (Wine case)
         HWND console_window = GetConsoleWindow();
         if (console_window != NULL) {
             console_allocated = TRUE;
             printf("Using existing console\n");
+            fflush(stdout);
+        } else {
+            // Only allocate new console as last resort (native Windows GUI case)
+            if (AllocConsole()) {
+                console_allocated = TRUE;
+                printf("New console allocated\n");
+                fflush(stdout);
+            }
         }
     }
     
     if (console_allocated) {
-        // Redirect stdout, stdin, stderr to console
-        FILE *fp_out, *fp_err, *fp_in;
-        freopen_s(&fp_out, "CONOUT$", "w", stdout);
-        freopen_s(&fp_err, "CONOUT$", "w", stderr);
-        freopen_s(&fp_in, "CONIN$", "r", stdin);
+        // Only redirect if we actually need to (for AllocConsole case)
+        // Skip redirection for Wine/parent console to keep output in original terminal
+        HWND console_window = GetConsoleWindow();
+        if (console_window != NULL) {
+            // Check if this is our own allocated console vs inherited
+            DWORD console_pid;
+            GetWindowThreadProcessId(console_window, &console_pid);
+            if (console_pid == GetCurrentProcessId()) {
+                // This is our own console, redirect streams
+                FILE *fp_out, *fp_err, *fp_in;
+                freopen_s(&fp_out, "CONOUT$", "w", stdout);
+                freopen_s(&fp_err, "CONOUT$", "w", stderr);
+                freopen_s(&fp_in, "CONIN$", "r", stdin);
+            }
+        }
         
         // Set console title and properties
         SetConsoleTitle(TEXT("Ariel LV2 Host - Debug Console"));
@@ -448,14 +481,30 @@ main(int argc, char *argv[])
         ARIEL_ERROR("Failed to create ArielApp instance");
         return 1;
     }
-    
+
+#ifdef _WIN32
+    g_print("ArielApp created successfully, about to run GApplication\n");
+    fflush(stdout);
+#endif
+
     ARIEL_INFO("Running GApplication");
+    
+#ifdef _WIN32
+    g_print("Calling g_application_run...\n");
+    fflush(stdout);
+#endif
+    
     status = g_application_run(G_APPLICATION(app), argc, argv);
+    
+#ifdef _WIN32
+    g_print("g_application_run returned: %d\n", status);
+    fflush(stdout);
+#endif
     
     printf("Cleaning up application\n");
     g_object_unref(app);
     
-#ifdef G_OS_WIN32
+#ifdef _WIN32
     CoUninitialize();
     printf("Windows COM cleanup completed\n");
     

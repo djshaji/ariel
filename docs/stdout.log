@@ -1,0 +1,111 @@
+Starting Ariel on Windows platform
+New console allocated
+Windows debug console configured successfully
+Console output test: printf working
+COM initialized successfully
+[21:58:36] [1;36mINFO [0m main.c:452 main() - Validating environment before app creation
+[21:58:36] [1;36mINFO [0m main.c:462 main() - Creating ArielApp instance
+[21:58:36] [1;36mINFO [0m main.c:165 ariel_app_new() - Creating new ArielApp with GObject system
+[21:58:36] [1;36mINFO [0m main.c:174 ariel_app_new() - ARIEL_TYPE_APP = 12619808, creating GObject
+Initializing ArielApp instance at 0000000000bd8960
+Windows detected - deferring complex initialization to activation phase
+[21:58:36] [1;36mINFO [0m main.c:186 ariel_app_new() - ArielApp created successfully at 0000000000bd8960
+ArielApp created successfully, about to run GApplication
+[21:58:36] [1;36mINFO [0m main.c:474 main() - Running GApplication
+Calling g_application_run...
+Activating ArielApp
+Performing deferred Windows initialization
+Creating deferred audio engine
+[21:58:37] [1;36mINFO [0m engine.c:25 ariel_audio_engine_new() - Audio engine created successfully
+Creating deferred plugin manager
+[21:58:37] [1;36mINFO [0m config.c:19 get_platform_config_dir() - Windows config dir: C:\users\djshaji\AppData\Local\ariel
+[21:58:37] [1;36mINFO [0m config.c:124 ariel_config_new() - Using config directory: C:\users\djshaji\AppData\Local\ariel
+[21:58:37] [1;36mINFO [0m config.c:125 ariel_config_new() - Plugin cache file: C:\users\djshaji\AppData\Local\ariel\plugin_cache.ini
+[21:58:37] [1;36mINFO [0m plugin_manager.c:449 ariel_urid_map_new() - URID map created successfully
+[21:58:37] [1;36mINFO [0m plugin_manager.c:206 ariel_worker_schedule_new() - Created LV2 worker schedule with thread pool
+[21:58:37] [1;36mINFO [0m plugin_manager.c:864 ariel_plugin_manager_new() - Set Windows LV2 path: Z:\home\djshaji\projects\ariel-windows\lv2
+[21:58:37] [1;36mINFO [0m plugin_manager.c:877 ariel_plugin_manager_new() - Loading LV2 plugins...
+Loaded 0 plugins from cache
+No valid cache found, scanning plugins...
+Plugin manager refreshed with 0 plugins
+Saved plugin cache to C:\users\djshaji\AppData\Local\ariel\plugin_cache.ini
+Connecting deferred components
+[21:58:37] [1;36mINFO [0m engine.c:133 ariel_audio_engine_set_plugin_manager() - Plugin manager set for audio engine
+Windows deferred initialization completed
+Loading custom CSS
+[21:58:37] [1;36mINFO [0m main.c:320 ariel_load_custom_css() - Loading theme CSS: default.css
+[21:58:37] [1;36mINFO [0m main.c:332 ariel_load_custom_css() - Loaded default theme CSS from: /usr/share/ariel/themes/default.css
+Creating main window
+Creating window with validated ArielApp: 0000000000bd8960
+Window app assignment verified: 0000000001efed40 -> 0000000000bd8960
+Added reference to ArielApp before UI setup
+About to call ariel_window_setup_ui with window->app = 0000000000bd8960
+ariel_window_setup_ui: Starting with window->app = 0000000000bd8960
+About to create plugin list with window->app = 0000000000bd8960
+ariel_create_plugin_list: Starting with window = 0000000001efed40, window->app = 0000000000bd8960
+About to call ariel_app_get_plugin_manager with window->app = 0000000000bd8960
+ariel_app_get_plugin_manager returned: 0000000001fca080
+Created plugin list, window->app = 0000000000bd8960
+JACK: Sample rate = 48000 Hz, Buffer size = 1024 frames
+Audio engine started successfully
+Audio engine auto-started successfully
+Completed ariel_window_setup_ui with window->app = 0000000000bd8960
+Presenting main window
+Application activation completed successfully
+g_application_run returned: 0
+Cleaning up application
+Windows COM cleanup completed
+Windows cleanup completed - press Enter to continue
+Starting Ariel on Windows platform
+New console allocated
+Windows debug console configured successfully
+Console output test: printf working
+COM initialized successfully
+[21:58:53] [1;36mINFO [0m main.c:452 main() - Validating environment before app creation
+[21:58:53] [1;36mINFO [0m main.c:462 main() - Creating ArielApp instance
+[21:58:53] [1;36mINFO [0m main.c:165 ariel_app_new() - Creating new ArielApp with GObject system
+[21:58:53] [1;36mINFO [0m main.c:174 ariel_app_new() - ARIEL_TYPE_APP = 12619808, creating GObject
+Initializing ArielApp instance at 0000000000bd8960
+Windows detected - deferring complex initialization to activation phase
+[21:58:53] [1;36mINFO [0m main.c:186 ariel_app_new() - ArielApp created successfully at 0000000000bd8960
+ArielApp created successfully, about to run GApplication
+[21:58:53] [1;36mINFO [0m main.c:474 main() - Running GApplication
+Calling g_application_run...
+Activating ArielApp
+Performing deferred Windows initialization
+Creating deferred audio engine
+[21:58:54] [1;36mINFO [0m engine.c:25 ariel_audio_engine_new() - Audio engine created successfully
+Creating deferred plugin manager
+[21:58:54] [1;36mINFO [0m config.c:19 get_platform_config_dir() - Windows config dir: C:\users\djshaji\AppData\Local\ariel
+[21:58:54] [1;36mINFO [0m config.c:124 ariel_config_new() - Using config directory: C:\users\djshaji\AppData\Local\ariel
+[21:58:54] [1;36mINFO [0m config.c:125 ariel_config_new() - Plugin cache file: C:\users\djshaji\AppData\Local\ariel\plugin_cache.ini
+[21:58:54] [1;36mINFO [0m plugin_manager.c:449 ariel_urid_map_new() - URID map created successfully
+[21:58:54] [1;36mINFO [0m plugin_manager.c:206 ariel_worker_schedule_new() - Created LV2 worker schedule with thread pool
+[21:58:54] [1;36mINFO [0m plugin_manager.c:864 ariel_plugin_manager_new() - Set Windows LV2 path: Z:\home\djshaji\projects\ariel-windows\lv2
+[21:58:54] [1;36mINFO [0m plugin_manager.c:877 ariel_plugin_manager_new() - Loading LV2 plugins...
+Loaded 0 plugins from cache
+No valid cache found, scanning plugins...
+Plugin manager refreshed with 0 plugins
+Saved plugin cache to C:\users\djshaji\AppData\Local\ariel\plugin_cache.ini
+Connecting deferred components
+[21:58:54] [1;36mINFO [0m engine.c:133 ariel_audio_engine_set_plugin_manager() - Plugin manager set for audio engine
+Windows deferred initialization completed
+Loading custom CSS
+[21:58:54] [1;36mINFO [0m main.c:320 ariel_load_custom_css() - Loading theme CSS: default.css
+[21:58:54] [1;36mINFO [0m main.c:332 ariel_load_custom_css() - Loaded default theme CSS from: /usr/share/ariel/themes/default.css
+Creating main window
+Creating window with validated ArielApp: 0000000000bd8960
+Window app assignment verified: 0000000001fd2190 -> 0000000000bd8960
+Added reference to ArielApp before UI setup
+About to call ariel_window_setup_ui with window->app = 0000000000bd8960
+ariel_window_setup_ui: Starting with window->app = 0000000000bd8960
+About to create plugin list with window->app = 0000000000bd8960
+ariel_create_plugin_list: Starting with window = 0000000001fd2190, window->app = 0000000000bd8960
+About to call ariel_app_get_plugin_manager with window->app = 0000000000bd8960
+ariel_app_get_plugin_manager returned: 0000000001fca080
+Created plugin list, window->app = 0000000000bd8960
+JACK: Sample rate = 48000 Hz, Buffer size = 1024 frames
+Audio engine started successfully
+Audio engine auto-started successfully
+Completed ariel_window_setup_ui with window->app = 0000000000bd8960
+Presenting main window

@@ -852,26 +852,47 @@ ariel_plugin_manager_new(void)
     }
     
     // Windows-specific LV2 path setup with error checking
-    # ifdef __MINGW64__ || __MINGW32__
+    #if defined(__MINGW64__) || defined(__MINGW32__)
         const char *current_dir = g_get_current_dir();
         if (current_dir) {
-            const char *lv2_path = g_build_filename(current_dir, "lv2", NULL);
-            if (lv2_path) {
-                LilvNode* lv2_path_node = lilv_new_file_uri(manager->world, NULL, lv2_path);
-                if (lv2_path_node) {
-                    lilv_world_set_option(manager->world, LILV_OPTION_LV2_PATH, lv2_path_node);
-                    lilv_node_free(lv2_path_node);
-                    ARIEL_INFO("Set Windows LV2 path: %s", lv2_path);
-                } else {
-                    ARIEL_WARN("Failed to create LV2 path URI node for Windows");
+            // Array of possible LV2 directories to check
+            const char *lv2_dirs[] = {
+                "lv2",                          // Current directory lv2/
+                "../lv2",                       // Parent directory lv2/ 
+                "../ariel-windows/lv2",         // Sibling ariel-windows/lv2/
+                "../../ariel-windows/lv2",      // Parent of parent ariel-windows/lv2/
+                NULL
+            };
+            
+            gboolean found_lv2_path = FALSE;
+            for (int i = 0; lv2_dirs[i] != NULL; i++) {
+                const char *lv2_path = g_build_filename(current_dir, lv2_dirs[i], NULL);
+                if (lv2_path && g_file_test(lv2_path, G_FILE_TEST_IS_DIR)) {
+                    LilvNode* lv2_path_node = lilv_new_file_uri(manager->world, NULL, lv2_path);
+                    if (lv2_path_node) {
+                        lilv_world_set_option(manager->world, LILV_OPTION_LV2_PATH, lv2_path_node);
+                        lilv_node_free(lv2_path_node);
+                        ARIEL_INFO("Set Windows LV2 path: %s", lv2_path);
+                        g_setenv("LV2_PATH", lv2_path, TRUE);
+                        found_lv2_path = TRUE;
+                        g_free((void *)lv2_path);
+                        break;
+                    } else {
+                        ARIEL_WARN("Failed to create LV2 path URI node for: %s", lv2_path);
+                    }
                 }
-                g_free((void *)lv2_path);
+                if (lv2_path) g_free((void *)lv2_path);
             }
+            
+            if (!found_lv2_path) {
+                ARIEL_WARN("No LV2 directory found in Windows build - checked common locations");
+            }
+            
             g_free((void *)current_dir);
         } else {
             ARIEL_WARN("Failed to get current directory for Windows LV2 path");
         }
-    # endif
+    #endif
 
     // Load LV2 plugins with error handling
     ARIEL_INFO("Loading LV2 plugins...");

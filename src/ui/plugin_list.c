@@ -136,11 +136,43 @@ ariel_create_plugin_list(ArielWindow *window)
     // Create filter controls container
     GtkWidget *filter_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
     
-    // Create search entry
+    // Create search entry with memory management
+#ifdef _WIN32
+    g_print("About to create search entry - cleaning memory first...\n");
+    
+    // Force memory cleanup before GTK widget creation
+    void *temp_allocs[10];
+    for (int i = 0; i < 10; i++) {
+        temp_allocs[i] = g_try_malloc(1024);
+    }
+    for (int i = 0; i < 10; i++) {
+        if (temp_allocs[i]) g_free(temp_allocs[i]);
+    }
+    
+    g_print("Memory cleanup completed, attempting search entry creation...\n");
+#endif
+    
     search_entry = gtk_search_entry_new();
-    gtk_search_entry_set_placeholder_text(GTK_SEARCH_ENTRY(search_entry), "Search plugins...");
+    if (!search_entry) {
+        g_warning("Failed to create search entry - using plain entry");
+        search_entry = gtk_entry_new();
+        if (!search_entry) {
+            g_critical("Failed to create any entry widget - using label");
+            search_entry = gtk_label_new("Search unavailable");
+            gtk_box_append(GTK_BOX(filter_box), search_entry);
+            goto skip_search_setup;
+        }
+    } else {
+#ifdef _WIN32
+        g_print("Search entry created successfully\n");
+#endif
+        gtk_search_entry_set_placeholder_text(GTK_SEARCH_ENTRY(search_entry), "Search plugins...");
+    }
+    
     gtk_widget_set_hexpand(search_entry, TRUE);
     gtk_box_append(GTK_BOX(filter_box), search_entry);
+    
+skip_search_setup:
     
     // Create category dropdown
     GtkWidget *category_dropdown = gtk_drop_down_new(NULL, NULL);

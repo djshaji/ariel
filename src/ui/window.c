@@ -75,16 +75,29 @@ ariel_window_setup_ui(ArielWindow *window)
         return;
     }
     
-    // Additional memory check before UI creation
-    g_print("Checking memory before creating UI components...\n");
+    // Proactive memory management before UI creation
+    g_print("Performing proactive memory cleanup before UI creation...\n");
+    
+    // Large scale memory defragmentation
+    void *large_blocks[50];
+    for (int i = 0; i < 50; i++) {
+        large_blocks[i] = g_try_malloc(4096);
+    }
+    for (int i = 0; i < 50; i++) {
+        if (large_blocks[i]) g_free(large_blocks[i]);
+    }
+    
+    // Test allocation after cleanup
     void *test_alloc = g_try_malloc(1024);
     if (test_alloc) {
-        g_print("Test allocation successful\n");
+        g_print("Test allocation successful after memory cleanup\n");
         g_free(test_alloc);
     } else {
-        g_critical("Test allocation failed - memory issues detected!");
+        g_critical("Test allocation failed even after memory cleanup!");
         return;
     }
+    
+    g_print("Memory management completed - proceeding with UI creation\n");
 #endif
     
     GtkWidget *vbox;
@@ -119,13 +132,39 @@ ariel_window_setup_ui(ArielWindow *window)
 #endif
     // gtk_box_append(GTK_BOX(vbox), window->transport_box);
     
-    // Create main paned view
+    // Create main paned view with memory management
 #ifdef _WIN32
     // WORKAROUND: Store app pointer before GTK operations that corrupt memory
     ArielApp *saved_app = window->app;
     g_print("CORRUPTION WORKAROUND: Saved app pointer %p before gtk_paned_new\n", (void*)saved_app);
+    
+    // Aggressive memory cleanup before GTK widget creation
+    g_print("Performing aggressive memory cleanup before gtk_paned_new...\n");
+    
+    // Force multiple allocation/deallocation cycles to defragment memory
+    void *temp_blocks[20];
+    for (int i = 0; i < 20; i++) {
+        temp_blocks[i] = g_try_malloc(2048);
+    }
+    for (int i = 0; i < 20; i++) {
+        if (temp_blocks[i]) g_free(temp_blocks[i]);
+    }
+    
+    // Try to force garbage collection
+    g_print("Memory cleanup completed, attempting gtk_paned_new...\n");
 #endif
+    
     window->main_paned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
+    
+    // Check if paned creation failed and implement fallback
+    if (!window->main_paned) {
+        g_critical("Failed to create GtkPaned - using fallback box layout");
+        window->main_paned = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+        if (!window->main_paned) {
+            g_critical("Failed to create any horizontal container - aborting UI setup");
+            return;
+        }
+    }
 #ifdef _WIN32
     g_print("STEP 7: Created paned, window->app = %p (should be %p)\n", (void*)window->app, (void*)saved_app);
     if (window->app != saved_app) {

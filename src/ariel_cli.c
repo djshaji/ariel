@@ -10,12 +10,14 @@
 typedef enum {
     CLI_PANEL_PLUGIN_LIST = 0,
     CLI_PANEL_ACTIVE_PLUGINS = 1,
-    CLI_PANEL_COUNT = 2
+    CLI_PANEL_PLUGIN_CONTROLS = 2,
+    CLI_PANEL_COUNT = 3
 } ArielCLIPanelType;
 
 typedef struct {
     WINDOW *plugin_list_win;
     WINDOW *active_plugins_win;
+    WINDOW *plugin_controls_win;
     WINDOW *controls_win;
     WINDOW *status_win;
     
@@ -25,8 +27,10 @@ typedef struct {
     
     int plugin_list_selected;
     int active_plugin_selected;
+    int plugin_control_selected;
     int max_plugins;
     int max_active_plugins;
+    int max_plugin_controls;
     
     gboolean running;
     gboolean audio_active;
@@ -36,6 +40,7 @@ typedef struct {
     // Scrolling state
     int plugin_list_scroll_offset;
     int active_plugins_scroll_offset;
+    int plugin_controls_scroll_offset;
 } ArielCLI;
 
 static ArielCLI *g_cli = NULL;
@@ -85,6 +90,7 @@ static void cli_init_windows(ArielCLI *cli);
 static void cli_draw_header(ArielCLI *cli);
 static void cli_draw_plugin_list(ArielCLI *cli);
 static void cli_draw_active_plugins(ArielCLI *cli);
+static void cli_draw_plugin_controls(ArielCLI *cli);
 static void cli_draw_controls(ArielCLI *cli);
 static void cli_draw_status(ArielCLI *cli);
 static void cli_refresh_all(ArielCLI *cli);
@@ -93,6 +99,9 @@ static void cli_add_plugin(ArielCLI *cli);
 static void cli_remove_plugin(ArielCLI *cli);
 static void cli_toggle_plugin(ArielCLI *cli);
 static void cli_toggle_audio_engine(ArielCLI *cli);
+static void cli_toggle_bypass(ArielCLI *cli);
+static void cli_load_file(ArielCLI *cli);
+static void cli_adjust_parameter(ArielCLI *cli, float delta);
 static void cli_cleanup(ArielCLI *cli);
 
 // Get plugin name safely
@@ -134,22 +143,28 @@ static void cli_init_windows(ArielCLI *cli)
     // Delete old windows if they exist
     if (cli->plugin_list_win) delwin(cli->plugin_list_win);
     if (cli->active_plugins_win) delwin(cli->active_plugins_win);
+    if (cli->plugin_controls_win) delwin(cli->plugin_controls_win);
     if (cli->controls_win) delwin(cli->controls_win);
     if (cli->status_win) delwin(cli->status_win);
     
     // Create windows with borders
-    // Plugin list (left side, 40% width)
-    int plugin_list_width = width * 0.4;
+    // Plugin list (left side, 30% width)
+    int plugin_list_width = width * 0.3;
     cli->plugin_list_win = newwin(height - 4, plugin_list_width, 2, 0);
     
-    // Active plugins (right side, top half)
-    int active_plugins_width = width - plugin_list_width;
-    int active_plugins_height = (height - 4) / 2;
-    cli->active_plugins_win = newwin(active_plugins_height, active_plugins_width, 2, plugin_list_width);
+    // Right side divided into three panels
+    int right_width = width - plugin_list_width;
+    int panel_height = (height - 4) / 3;
     
-    // Controls (bottom right)
-    int controls_height = height - 4 - active_plugins_height;
-    cli->controls_win = newwin(controls_height, active_plugins_width, 2 + active_plugins_height, plugin_list_width);
+    // Active plugins (top right)
+    cli->active_plugins_win = newwin(panel_height, right_width, 2, plugin_list_width);
+    
+    // Plugin controls (middle right)
+    cli->plugin_controls_win = newwin(panel_height, right_width, 2 + panel_height, plugin_list_width);
+    
+    // Help/Controls (bottom right)
+    int controls_height = height - 4 - (2 * panel_height);
+    cli->controls_win = newwin(controls_height, right_width, 2 + (2 * panel_height), plugin_list_width);
     
     // Status bar (bottom)
     cli->status_win = newwin(2, width, height - 2, 0);
@@ -163,6 +178,7 @@ static void cli_init_windows(ArielCLI *cli)
     // Just clear the windows without refreshing them yet
     wclear(cli->plugin_list_win);
     wclear(cli->active_plugins_win);
+    wclear(cli->plugin_controls_win);
     wclear(cli->controls_win);
     wclear(cli->status_win);
 }
@@ -374,6 +390,141 @@ static void cli_draw_active_plugins(ArielCLI *cli)
     wrefresh(cli->active_plugins_win);
 }
 
+static void cli_draw_plugin_controls(ArielCLI *cli)
+{
+    if (!cli->plugin_manager || !cli->plugin_controls_win) return;
+    
+    // Clear window content
+    werase(cli->plugin_controls_win);
+    box(cli->plugin_controls_win, 0, 0);
+    
+    // Window title with focus indicator
+    const char *title = (cli->current_panel == CLI_PANEL_PLUGIN_CONTROLS) ? 
+                       " Plugin Controls [FOCUSED] " : " Plugin Controls ";
+    if (cli->current_panel == CLI_PANEL_PLUGIN_CONTROLS) {
+        wattron(cli->plugin_controls_win, A_BOLD | COLOR_PAIR(5));
+    }
+    mvwprintw(cli->plugin_controls_win, 0, 2, "%s", title);
+    if (cli->current_panel == CLI_PANEL_PLUGIN_CONTROLS) {
+        wattroff(cli->plugin_controls_win, A_BOLD | COLOR_PAIR(5));
+    }
+    
+    GListModel *model = G_LIST_MODEL(cli->plugin_manager->active_plugin_store);
+    guint n_active = g_list_model_get_n_items(model);
+    
+    int win_height, win_width;
+    getmaxyx(cli->plugin_controls_win, win_height, win_width);
+    
+    if (n_active == 0 || cli->active_plugin_selected >= n_active) {
+        mvwprintw(cli->plugin_controls_win, 2, 2, "No active plugin selected");
+        mvwprintw(cli->plugin_controls_win, 3, 2, "Select a plugin from the active list");
+    } else {
+        // Get the currently selected active plugin
+        ArielActivePlugin *plugin = g_list_model_get_item(model, cli->active_plugin_selected);
+        if (!plugin) {
+            mvwprintw(cli->plugin_controls_win, 2, 2, "Plugin not available");
+            wrefresh(cli->plugin_controls_win);
+            return;
+        }
+        
+        const char *plugin_name = get_active_plugin_name(plugin);
+        mvwprintw(cli->plugin_controls_win, 1, 2, "Controls for: %.*s", 
+                 win_width - 18, plugin_name);
+        
+        // Get plugin parameters
+        uint32_t n_params = ariel_active_plugin_get_num_parameters(plugin);
+        cli->max_plugin_controls = n_params + 2; // +2 for bypass and file loading
+        
+        int display_height = win_height - 4; // Account for borders and title
+        
+        // Calculate scroll offset
+        if (cli->plugin_control_selected < cli->plugin_controls_scroll_offset) {
+            cli->plugin_controls_scroll_offset = cli->plugin_control_selected;
+        } else if (cli->plugin_control_selected >= cli->plugin_controls_scroll_offset + display_height) {
+            cli->plugin_controls_scroll_offset = cli->plugin_control_selected - display_height + 1;
+        }
+        
+        int start_idx = cli->plugin_controls_scroll_offset;
+        int row = 3;
+        
+        // Show bypass control first
+        if (start_idx <= 0 && row < win_height - 1) {
+            gboolean bypassed = ariel_active_plugin_get_bypass(plugin);
+            if (cli->plugin_control_selected == 0) {
+                wattron(cli->plugin_controls_win, A_REVERSE);
+            }
+            if (bypassed) {
+                wattron(cli->plugin_controls_win, COLOR_PAIR(3)); // Red
+                mvwprintw(cli->plugin_controls_win, row, 2, "[BYPASS] ON ");
+                wattroff(cli->plugin_controls_win, COLOR_PAIR(3));
+            } else {
+                wattron(cli->plugin_controls_win, COLOR_PAIR(2)); // Green
+                mvwprintw(cli->plugin_controls_win, row, 2, "[BYPASS] OFF");
+                wattroff(cli->plugin_controls_win, COLOR_PAIR(2));
+            }
+            mvwprintw(cli->plugin_controls_win, row, 15, " (Press 'b' to toggle)");
+            if (cli->plugin_control_selected == 0) {
+                wattroff(cli->plugin_controls_win, A_REVERSE);
+            }
+            row++;
+        }
+        
+        // Show file loading control if supported
+        if (start_idx <= 1 && row < win_height - 1) {
+            gboolean supports_files = ariel_active_plugin_supports_file_parameters(plugin);
+            if (cli->plugin_control_selected == 1) {
+                wattron(cli->plugin_controls_win, A_REVERSE);
+            }
+            if (supports_files) {
+                wattron(cli->plugin_controls_win, COLOR_PAIR(2)); // Green
+                mvwprintw(cli->plugin_controls_win, row, 2, "[FILE LOAD] Available");
+                wattroff(cli->plugin_controls_win, COLOR_PAIR(2));
+                mvwprintw(cli->plugin_controls_win, row, 22, " (Press 'f' to load)");
+            } else {
+                wattron(cli->plugin_controls_win, COLOR_PAIR(4)); // Yellow
+                mvwprintw(cli->plugin_controls_win, row, 2, "[FILE LOAD] Not supported");
+                wattroff(cli->plugin_controls_win, COLOR_PAIR(4));
+            }
+            if (cli->plugin_control_selected == 1) {
+                wattroff(cli->plugin_controls_win, A_REVERSE);
+            }
+            row++;
+        }
+        
+        // Show parameters
+        for (uint32_t i = 0; i < n_params && row < win_height - 1; i++) {
+            int control_idx = i + 2; // +2 for bypass and file loading
+            if (control_idx < start_idx) continue;
+            if (control_idx >= start_idx + display_height) break;
+            
+            float value = ariel_active_plugin_get_parameter(plugin, i);
+            
+            if (cli->plugin_control_selected == control_idx) {
+                wattron(cli->plugin_controls_win, A_REVERSE);
+            }
+            
+            // Show parameter name and value
+            mvwprintw(cli->plugin_controls_win, row, 2, "Param %d: %.3f", i, value);
+            mvwprintw(cli->plugin_controls_win, row, 20, " (+/- to adjust)");
+            
+            if (cli->plugin_control_selected == control_idx) {
+                wattroff(cli->plugin_controls_win, A_REVERSE);
+            }
+            row++;
+        }
+        
+        // Show scrolling indicator
+        if (cli->max_plugin_controls > display_height) {
+            mvwprintw(cli->plugin_controls_win, win_height - 1, win_width - 10, " %d/%d ", 
+                     cli->plugin_control_selected + 1, cli->max_plugin_controls);
+        }
+        
+        g_object_unref(plugin);
+    }
+    
+    wrefresh(cli->plugin_controls_win);
+}
+
 static void cli_draw_controls(ArielCLI *cli)
 {
     if (!cli->controls_win) return;
@@ -400,6 +551,9 @@ static void cli_draw_controls(ArielCLI *cli)
     mvwprintw(cli->controls_win, row++, 4, "a - Add selected plugin");
     mvwprintw(cli->controls_win, row++, 4, "d - Remove active plugin");
     mvwprintw(cli->controls_win, row++, 4, "t - Toggle active plugin");
+    mvwprintw(cli->controls_win, row++, 4, "b - Toggle bypass (in controls)");
+    mvwprintw(cli->controls_win, row++, 4, "f - Load file (in controls)");
+    mvwprintw(cli->controls_win, row++, 4, "+/- - Adjust parameter (controls)");
     row++;
     
     // Audio controls
@@ -489,6 +643,7 @@ static void cli_refresh_all(ArielCLI *cli)
     // Draw all windows - they handle their own clearing
     cli_draw_plugin_list(cli);
     cli_draw_active_plugins(cli);
+    cli_draw_plugin_controls(cli);
     cli_draw_controls(cli);
     cli_draw_status(cli);
     
@@ -539,6 +694,32 @@ static void cli_handle_input(ArielCLI *cli, int ch)
             cli_init_windows(cli);
             break;
             
+        case 'b':
+        case 'B':
+            cli_toggle_bypass(cli);
+            break;
+            
+        case 'f':
+        case 'F':
+            if (cli->current_panel == CLI_PANEL_PLUGIN_CONTROLS) {
+                cli_load_file(cli);
+            }
+            break;
+            
+        case '+':
+        case '=':
+            if (cli->current_panel == CLI_PANEL_PLUGIN_CONTROLS) {
+                cli_adjust_parameter(cli, 0.1f);
+            }
+            break;
+            
+        case '-':
+        case '_':
+            if (cli->current_panel == CLI_PANEL_PLUGIN_CONTROLS) {
+                cli_adjust_parameter(cli, -0.1f);
+            }
+            break;
+            
         case KEY_UP:
             if (cli->current_panel == CLI_PANEL_PLUGIN_LIST) {
                 if (cli->plugin_list_selected > 0) {
@@ -547,6 +728,10 @@ static void cli_handle_input(ArielCLI *cli, int ch)
             } else if (cli->current_panel == CLI_PANEL_ACTIVE_PLUGINS) {
                 if (cli->active_plugin_selected > 0) {
                     cli->active_plugin_selected--;
+                }
+            } else if (cli->current_panel == CLI_PANEL_PLUGIN_CONTROLS) {
+                if (cli->plugin_control_selected > 0) {
+                    cli->plugin_control_selected--;
                 }
             }
             break;
@@ -560,17 +745,21 @@ static void cli_handle_input(ArielCLI *cli, int ch)
                 if (cli->active_plugin_selected < cli->max_active_plugins - 1) {
                     cli->active_plugin_selected++;
                 }
+            } else if (cli->current_panel == CLI_PANEL_PLUGIN_CONTROLS) {
+                if (cli->plugin_control_selected < cli->max_plugin_controls - 1) {
+                    cli->plugin_control_selected++;
+                }
             }
             break;
             
         case KEY_LEFT:
-            // Switch to plugin list panel
-            cli->current_panel = CLI_PANEL_PLUGIN_LIST;
+            // Switch to previous panel
+            cli->current_panel = (cli->current_panel - 1 + CLI_PANEL_COUNT) % CLI_PANEL_COUNT;
             break;
             
         case KEY_RIGHT:
-            // Switch to active plugins panel
-            cli->current_panel = CLI_PANEL_ACTIVE_PLUGINS;
+            // Switch to next panel
+            cli->current_panel = (cli->current_panel + 1) % CLI_PANEL_COUNT;
             break;
             
         case '\t': // Tab key
@@ -755,6 +944,109 @@ static void cli_toggle_audio_engine(ArielCLI *cli)
     restore_output(suppressor);
 }
 
+static void cli_toggle_bypass(ArielCLI *cli)
+{
+    if (!cli->plugin_manager || cli->active_plugin_selected < 0) return;
+    
+    GListModel *model = G_LIST_MODEL(cli->plugin_manager->active_plugin_store);
+    guint n_active = g_list_model_get_n_items(model);
+    if (n_active == 0 || cli->active_plugin_selected >= n_active) return;
+    
+    ArielActivePlugin *plugin = g_list_model_get_item(model, cli->active_plugin_selected);
+    if (!plugin) return;
+    
+    // Suppress output during plugin operations
+    OutputSuppressor *suppressor = suppress_output();
+    
+    // Toggle bypass state
+    gboolean bypassed = ariel_active_plugin_get_bypass(plugin);
+    ariel_active_plugin_set_bypass(plugin, !bypassed);
+    
+    // Restore output
+    restore_output(suppressor);
+    
+    g_object_unref(plugin);
+}
+
+static void cli_load_file(ArielCLI *cli)
+{
+    if (!cli->plugin_manager || cli->active_plugin_selected < 0) return;
+    
+    GListModel *model = G_LIST_MODEL(cli->plugin_manager->active_plugin_store);
+    guint n_active = g_list_model_get_n_items(model);
+    if (n_active == 0 || cli->active_plugin_selected >= n_active) return;
+    
+    ArielActivePlugin *plugin = g_list_model_get_item(model, cli->active_plugin_selected);
+    if (!plugin) return;
+    
+    // Check if plugin supports file parameters
+    if (!ariel_active_plugin_supports_file_parameters(plugin)) {
+        g_object_unref(plugin);
+        return;
+    }
+    
+    // For now, we'll use a simple hardcoded path - in a full implementation,
+    // this would show a file picker or prompt for input
+    const char *test_file = "/tmp/test.wav"; // Placeholder
+    
+    // Suppress output during plugin operations
+    OutputSuppressor *suppressor = suppress_output();
+    
+    // Load file parameter
+    ariel_active_plugin_set_file_parameter(plugin, test_file);
+    
+    // Restore output
+    restore_output(suppressor);
+    
+    g_object_unref(plugin);
+}
+
+static void cli_adjust_parameter(ArielCLI *cli, float delta)
+{
+    if (!cli->plugin_manager || cli->active_plugin_selected < 0) return;
+    if (cli->current_panel != CLI_PANEL_PLUGIN_CONTROLS) return;
+    
+    GListModel *model = G_LIST_MODEL(cli->plugin_manager->active_plugin_store);
+    guint n_active = g_list_model_get_n_items(model);
+    if (n_active == 0 || cli->active_plugin_selected >= n_active) return;
+    
+    ArielActivePlugin *plugin = g_list_model_get_item(model, cli->active_plugin_selected);
+    if (!plugin) return;
+    
+    // Skip bypass and file loading controls (indices 0 and 1)
+    if (cli->plugin_control_selected < 2) {
+        g_object_unref(plugin);
+        return;
+    }
+    
+    uint32_t param_idx = cli->plugin_control_selected - 2;
+    uint32_t n_params = ariel_active_plugin_get_num_parameters(plugin);
+    
+    if (param_idx >= n_params) {
+        g_object_unref(plugin);
+        return;
+    }
+    
+    // Suppress output during plugin operations
+    OutputSuppressor *suppressor = suppress_output();
+    
+    // Get current value and adjust
+    float current_value = ariel_active_plugin_get_parameter(plugin, param_idx);
+    float new_value = current_value + delta;
+    
+    // Clamp to 0.0 - 1.0 range (most LV2 parameters are normalized)
+    if (new_value < 0.0f) new_value = 0.0f;
+    if (new_value > 1.0f) new_value = 1.0f;
+    
+    // Set the new parameter value
+    ariel_active_plugin_set_parameter(plugin, param_idx, new_value);
+    
+    // Restore output
+    restore_output(suppressor);
+    
+    g_object_unref(plugin);
+}
+
 static void cli_cleanup(ArielCLI *cli)
 {
     if (!cli) return;
@@ -762,6 +1054,7 @@ static void cli_cleanup(ArielCLI *cli)
     // Cleanup windows
     if (cli->plugin_list_win) delwin(cli->plugin_list_win);
     if (cli->active_plugins_win) delwin(cli->active_plugins_win);
+    if (cli->plugin_controls_win) delwin(cli->plugin_controls_win);
     if (cli->controls_win) delwin(cli->controls_win);
     if (cli->status_win) delwin(cli->status_win);
     
@@ -830,8 +1123,10 @@ int ariel_cli_main(int argc, char **argv)
     g_cli->current_panel = CLI_PANEL_PLUGIN_LIST;
     g_cli->plugin_list_selected = 0;
     g_cli->active_plugin_selected = 0;
+    g_cli->plugin_control_selected = 0;
     g_cli->plugin_list_scroll_offset = 0;
     g_cli->active_plugins_scroll_offset = 0;
+    g_cli->plugin_controls_scroll_offset = 0;
     
     // Create windows
     cli_init_windows(g_cli);

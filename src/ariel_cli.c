@@ -3,6 +3,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <time.h>
 
 // CLI-specific enums and structures
 typedef enum {
@@ -37,6 +39,46 @@ typedef struct {
 } ArielCLI;
 
 static ArielCLI *g_cli = NULL;
+
+// Helper structure for output suppression
+typedef struct {
+    int stdout_fd;
+    int stderr_fd;
+    int null_fd;
+} OutputSuppressor;
+
+// Helper functions for output suppression
+static OutputSuppressor* suppress_output()
+{
+    OutputSuppressor *suppressor = g_malloc0(sizeof(OutputSuppressor));
+    suppressor->stdout_fd = dup(STDOUT_FILENO);
+    suppressor->stderr_fd = dup(STDERR_FILENO);
+    suppressor->null_fd = open("/dev/null", O_WRONLY);
+    
+    if (suppressor->null_fd != -1) {
+        dup2(suppressor->null_fd, STDOUT_FILENO);
+        dup2(suppressor->null_fd, STDERR_FILENO);
+        close(suppressor->null_fd);
+    }
+    
+    return suppressor;
+}
+
+static void restore_output(OutputSuppressor *suppressor)
+{
+    if (!suppressor) return;
+    
+    if (suppressor->stdout_fd != -1) {
+        dup2(suppressor->stdout_fd, STDOUT_FILENO);
+        close(suppressor->stdout_fd);
+    }
+    if (suppressor->stderr_fd != -1) {
+        dup2(suppressor->stderr_fd, STDERR_FILENO);
+        close(suppressor->stderr_fd);
+    }
+    
+    g_free(suppressor);
+}
 
 // Function prototypes
 static void cli_init_windows(ArielCLI *cli);
@@ -82,20 +124,32 @@ static void cli_init_windows(ArielCLI *cli)
     int height, width;
     getmaxyx(stdscr, height, width);
     
+    // Ensure minimum terminal size
+    if (height < 20 || width < 80) {
+        endwin();
+        fprintf(stderr, "Terminal too small. Need at least 80x20 characters.\n");
+        exit(1);
+    }
+    
+    // Delete old windows if they exist
+    if (cli->plugin_list_win) delwin(cli->plugin_list_win);
+    if (cli->active_plugins_win) delwin(cli->active_plugins_win);
+    if (cli->controls_win) delwin(cli->controls_win);
+    if (cli->status_win) delwin(cli->status_win);
+    
     // Create windows with borders
     // Plugin list (left side, 40% width)
     int plugin_list_width = width * 0.4;
     cli->plugin_list_win = newwin(height - 4, plugin_list_width, 2, 0);
-    box(cli->plugin_list_win, 0, 0);
     
-    // Active plugins (right side, 60% width)
+    // Active plugins (right side, top half)
     int active_plugins_width = width - plugin_list_width;
-    cli->active_plugins_win = newwin((height - 4) / 2, active_plugins_width, 2, plugin_list_width);
-    box(cli->active_plugins_win, 0, 0);
+    int active_plugins_height = (height - 4) / 2;
+    cli->active_plugins_win = newwin(active_plugins_height, active_plugins_width, 2, plugin_list_width);
     
     // Controls (bottom right)
-    cli->controls_win = newwin((height - 4) / 2, active_plugins_width, 2 + (height - 4) / 2, plugin_list_width);
-    box(cli->controls_win, 0, 0);
+    int controls_height = height - 4 - active_plugins_height;
+    cli->controls_win = newwin(controls_height, active_plugins_width, 2 + active_plugins_height, plugin_list_width);
     
     // Status bar (bottom)
     cli->status_win = newwin(2, width, height - 2, 0);
@@ -105,18 +159,18 @@ static void cli_init_windows(ArielCLI *cli)
     keypad(cli->active_plugins_win, TRUE);
     keypad(cli->controls_win, TRUE);
     keypad(stdscr, TRUE);
+    
+    // Just clear the windows without refreshing them yet
+    wclear(cli->plugin_list_win);
+    wclear(cli->active_plugins_win);
+    wclear(cli->controls_win);
+    wclear(cli->status_win);
 }
 
 static void cli_draw_header(ArielCLI *cli)
 {
     int height, width;
     getmaxyx(stdscr, height, width);
-    
-    // Clear header area
-    move(0, 0);
-    clrtoeol();
-    move(1, 0);
-    clrtoeol();
     
     // Draw title
     attron(A_BOLD | A_REVERSE);
@@ -171,10 +225,22 @@ static void cli_draw_plugin_list(ArielCLI *cli)
     int win_height, win_width;
     getmaxyx(cli->plugin_list_win, win_height, win_width);
     
-    int display_height = win_height - 2; // Account for borders
-    int start_idx = (cli->plugin_list_selected / display_height) * display_height;
-    
-    for (int i = 0; i < display_height && (start_idx + i) < n_plugins; i++) {
+    if (n_plugins == 0) {
+        mvwprintw(cli->plugin_list_win, 2, 2, "No plugins available");
+        mvwprintw(cli->plugin_list_win, 3, 2, "Press 'r' to refresh");
+    } else {
+        int display_height = win_height - 3; // Account for borders and scrolling info
+        
+        // Calculate scroll offset to keep selected item visible
+        if (cli->plugin_list_selected < cli->plugin_list_scroll_offset) {
+            cli->plugin_list_scroll_offset = cli->plugin_list_selected;
+        } else if (cli->plugin_list_selected >= cli->plugin_list_scroll_offset + display_height) {
+            cli->plugin_list_scroll_offset = cli->plugin_list_selected - display_height + 1;
+        }
+        
+        int start_idx = cli->plugin_list_scroll_offset;
+        
+        for (int i = 0; i < display_height && (start_idx + i) < n_plugins; i++) {
         ArielPluginInfo *plugin_info = g_list_model_get_item(model, start_idx + i);
         if (!plugin_info) continue;
         
@@ -202,13 +268,14 @@ static void cli_draw_plugin_list(ArielCLI *cli)
             wattroff(cli->plugin_list_win, A_REVERSE);
         }
         
-        g_object_unref(plugin_info);
-    }
-    
-    // Show scrolling indicator
-    if (n_plugins > display_height) {
-        mvwprintw(cli->plugin_list_win, win_height - 1, win_width - 10, " %d/%d ", 
-                 cli->plugin_list_selected + 1, n_plugins);
+            g_object_unref(plugin_info);
+        }
+        
+        // Show scrolling indicator
+        if (n_plugins > display_height) {
+            mvwprintw(cli->plugin_list_win, win_height - 1, win_width - 10, " %d/%d ", 
+                     cli->plugin_list_selected + 1, n_plugins);
+        }
     }
     
     wrefresh(cli->plugin_list_win);
@@ -351,6 +418,7 @@ static void cli_draw_controls(ArielCLI *cli)
     // General controls
     mvwprintw(cli->controls_win, row++, 2, "General:");
     mvwprintw(cli->controls_win, row++, 4, "r - Refresh plugin list");
+    mvwprintw(cli->controls_win, row++, 4, "Ctrl+L - Force screen refresh");
     mvwprintw(cli->controls_win, row++, 4, "h - Show/hide help");
     mvwprintw(cli->controls_win, row++, 4, "q - Quit application");
     
@@ -397,25 +465,35 @@ static void cli_draw_status(ArielCLI *cli)
                  cli->plugin_list_selected + 1, cli->max_plugins);
     }
     
-    // Show current time
+    // Show current time (only minutes and hours to reduce updates)
     time_t now = time(NULL);
     struct tm *tm_info = localtime(&now);
     char time_str[20];
-    strftime(time_str, sizeof(time_str), "%H:%M:%S", tm_info);
-    mvwprintw(cli->status_win, 0, width - 12, "%s", time_str);
+    strftime(time_str, sizeof(time_str), "%H:%M", tm_info);
+    mvwprintw(cli->status_win, 0, width - 10, "%s", time_str);
     
     wrefresh(cli->status_win);
 }
 
 static void cli_refresh_all(ArielCLI *cli)
 {
-    clear();
+    // Only clear the header area, not the entire screen
+    move(0, 0);
+    clrtoeol();
+    move(1, 0);
+    clrtoeol();
+    
+    // Draw header directly on stdscr
     cli_draw_header(cli);
+    
+    // Draw all windows - they handle their own clearing
     cli_draw_plugin_list(cli);
     cli_draw_active_plugins(cli);
     cli_draw_controls(cli);
     cli_draw_status(cli);
-    refresh();
+    
+    // Update everything at once for smooth display
+    doupdate();
 }
 
 static void cli_handle_input(ArielCLI *cli, int ch)
@@ -449,8 +527,16 @@ static void cli_handle_input(ArielCLI *cli, int ch)
         case 'r':
         case 'R':
             if (cli->plugin_manager) {
+                // Suppress output during plugin refresh
+                OutputSuppressor *suppressor = suppress_output();
                 ariel_plugin_manager_refresh(cli->plugin_manager);
+                restore_output(suppressor);
             }
+            break;
+            
+        case 12: // Ctrl+L - force refresh screen
+            clear();
+            cli_init_windows(cli);
             break;
             
         case KEY_UP:
@@ -574,9 +660,15 @@ static void cli_add_plugin(ArielCLI *cli)
     ArielPluginInfo *plugin_info = g_list_model_get_item(model, cli->plugin_list_selected);
     if (!plugin_info) return;
     
+    // Suppress output during plugin loading
+    OutputSuppressor *suppressor = suppress_output();
+    
     // Load the plugin
     ArielActivePlugin *active_plugin = ariel_plugin_manager_load_plugin(
         cli->plugin_manager, plugin_info, cli->audio_engine);
+    
+    // Restore output
+    restore_output(suppressor);
     
     if (active_plugin) {
         // Plugin loaded successfully - activate it by default
@@ -595,6 +687,9 @@ static void cli_remove_plugin(ArielCLI *cli)
     guint n_active = g_list_model_get_n_items(model);
     if (n_active == 0 || cli->active_plugin_selected >= n_active) return;
     
+    // Suppress output during plugin operations
+    OutputSuppressor *suppressor = suppress_output();
+    
     // Get the plugin before removing it to properly clean up
     ArielActivePlugin *active_plugin = g_list_model_get_item(model, cli->active_plugin_selected);
     if (active_plugin) {
@@ -605,6 +700,9 @@ static void cli_remove_plugin(ArielCLI *cli)
     
     // Remove plugin from active list
     g_list_store_remove(cli->plugin_manager->active_plugin_store, cli->active_plugin_selected);
+    
+    // Restore output
+    restore_output(suppressor);
     
     // Adjust selection if needed
     n_active = g_list_model_get_n_items(model); // Refresh count after removal
@@ -626,9 +724,15 @@ static void cli_toggle_plugin(ArielCLI *cli)
     ArielActivePlugin *active_plugin = g_list_model_get_item(model, cli->active_plugin_selected);
     if (!active_plugin) return;
     
+    // Suppress output during plugin operations
+    OutputSuppressor *suppressor = suppress_output();
+    
     // Toggle plugin active state
     gboolean is_active = ariel_active_plugin_is_active(active_plugin);
     ariel_active_plugin_set_active(active_plugin, !is_active);
+    
+    // Restore output
+    restore_output(suppressor);
     
     g_object_unref(active_plugin);
 }
@@ -637,12 +741,18 @@ static void cli_toggle_audio_engine(ArielCLI *cli)
 {
     if (!cli->audio_engine) return;
     
+    // Suppress output during audio engine operations
+    OutputSuppressor *suppressor = suppress_output();
+    
     if (cli->audio_active) {
         ariel_audio_engine_stop(cli->audio_engine);
         cli->audio_active = FALSE;
     } else {
         cli->audio_active = ariel_audio_engine_start(cli->audio_engine);
     }
+    
+    // Restore output
+    restore_output(suppressor);
 }
 
 static void cli_cleanup(ArielCLI *cli)
@@ -701,7 +811,7 @@ int ariel_cli_main(int argc, char **argv)
     keypad(stdscr, TRUE);
     noecho();
     curs_set(0); // Hide cursor
-    timeout(100); // Non-blocking input with 100ms timeout
+    // Remove timeout - we want blocking input to prevent constant refreshing
     
     // Initialize colors
     if (has_colors()) {
@@ -731,19 +841,18 @@ int ariel_cli_main(int argc, char **argv)
         ariel_plugin_manager_refresh(g_cli->plugin_manager);
     }
     
+    // Initial display - draw everything
+    cli_refresh_all(g_cli);
+    
     // Main loop
     while (g_cli->running) {
-        // Handle input
+        // Handle input - blocking call, no timeout
         int ch = getch();
         if (ch != ERR) {
             cli_handle_input(g_cli, ch);
+            // Only refresh after user input
+            cli_refresh_all(g_cli);
         }
-        
-        // Update display
-        cli_refresh_all(g_cli);
-        
-        // Small delay to prevent excessive CPU usage
-        usleep(10000); // 10ms
     }
     
     // Cleanup

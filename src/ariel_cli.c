@@ -5,6 +5,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <limits.h>
 
 // CLI-specific enums and structures
 typedef enum {
@@ -100,6 +103,7 @@ static void cli_remove_plugin(ArielCLI *cli);
 static void cli_toggle_plugin(ArielCLI *cli);
 static void cli_toggle_audio_engine(ArielCLI *cli);
 static void cli_toggle_bypass(ArielCLI *cli);
+static char* cli_file_picker(ArielCLI *cli, const char *initial_dir);
 static void cli_load_file(ArielCLI *cli);
 static void cli_adjust_parameter(ArielCLI *cli, float delta);
 static void cli_cleanup(ArielCLI *cli);
@@ -552,7 +556,7 @@ static void cli_draw_controls(ArielCLI *cli)
     mvwprintw(cli->controls_win, row++, 4, "d - Remove active plugin");
     mvwprintw(cli->controls_win, row++, 4, "t - Toggle active plugin");
     mvwprintw(cli->controls_win, row++, 4, "b - Toggle bypass (in controls)");
-    mvwprintw(cli->controls_win, row++, 4, "f - Load file (in controls)");
+    mvwprintw(cli->controls_win, row++, 4, "f - Interactive file picker (controls)");
     mvwprintw(cli->controls_win, row++, 4, "+/- - Adjust parameter (controls)");
     row++;
     
@@ -968,6 +972,266 @@ static void cli_toggle_bypass(ArielCLI *cli)
     g_object_unref(plugin);
 }
 
+static char* cli_file_picker(ArielCLI *cli, const char *initial_dir)
+{
+    // Create a new window for file picker
+    int height, width;
+    getmaxyx(stdscr, height, width);
+    
+    int picker_height = height - 6;
+    int picker_width = width - 10;
+    int start_y = 3;
+    int start_x = 5;
+    
+    WINDOW *picker_win = newwin(picker_height, picker_width, start_y, start_x);
+    if (!picker_win) return NULL;
+    
+    keypad(picker_win, TRUE);
+    
+    char current_dir[PATH_MAX];
+    if (initial_dir) {
+        strncpy(current_dir, initial_dir, sizeof(current_dir) - 1);
+    } else {
+        if (!getcwd(current_dir, sizeof(current_dir))) {
+            strcpy(current_dir, "/");
+        }
+    }
+    current_dir[sizeof(current_dir) - 1] = '\0';
+    
+    // File list variables
+    char **file_list = NULL;
+    int file_count = 0;
+    int selected_file = 0;
+    int scroll_offset = 0;
+    char *selected_path = NULL;
+    
+    // Load directory contents
+    DIR *dir = opendir(current_dir);
+    if (!dir) {
+        delwin(picker_win);
+        return NULL;
+    }
+    
+    // Count files and allocate array
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") != 0) {
+            file_count++;
+        }
+    }
+    rewinddir(dir);
+    
+    file_list = malloc(file_count * sizeof(char*));
+    if (!file_list) {
+        closedir(dir);
+        delwin(picker_win);
+        return NULL;
+    }
+    
+    // Populate file list
+    int idx = 0;
+    while ((entry = readdir(dir)) != NULL && idx < file_count) {
+        if (strcmp(entry->d_name, ".") != 0) {
+            file_list[idx] = strdup(entry->d_name);
+            idx++;
+        }
+    }
+    closedir(dir);
+    
+    // Sort file list (simple bubble sort for directories first, then files)
+    for (int i = 0; i < file_count - 1; i++) {
+        for (int j = 0; j < file_count - i - 1; j++) {
+            char path1[PATH_MAX], path2[PATH_MAX];
+            snprintf(path1, sizeof(path1), "%s/%s", current_dir, file_list[j]);
+            snprintf(path2, sizeof(path2), "%s/%s", current_dir, file_list[j + 1]);
+            
+            struct stat stat1, stat2;
+            int is_dir1 = (stat(path1, &stat1) == 0) && S_ISDIR(stat1.st_mode);
+            int is_dir2 = (stat(path2, &stat2) == 0) && S_ISDIR(stat2.st_mode);
+            
+            // Directories first, then alphabetical
+            if ((is_dir1 && !is_dir2) || 
+                (is_dir1 == is_dir2 && strcmp(file_list[j], file_list[j + 1]) > 0)) {
+                char *temp = file_list[j];
+                file_list[j] = file_list[j + 1];
+                file_list[j + 1] = temp;
+            }
+        }
+    }
+    
+    // File picker main loop
+    int ch;
+    while (1) {
+        // Clear and draw window
+        werase(picker_win);
+        box(picker_win, 0, 0);
+        
+        // Title
+        wattron(picker_win, A_BOLD);
+        mvwprintw(picker_win, 0, 2, " File Picker - %s ", current_dir);
+        wattroff(picker_win, A_BOLD);
+        
+        // Instructions
+        mvwprintw(picker_win, picker_height - 2, 2, "Enter: Select | Esc/q: Cancel | Arrows: Navigate");
+        
+        // Display files
+        int display_height = picker_height - 4;
+        
+        // Calculate scroll offset
+        if (selected_file < scroll_offset) {
+            scroll_offset = selected_file;
+        } else if (selected_file >= scroll_offset + display_height) {
+            scroll_offset = selected_file - display_height + 1;
+        }
+        
+        for (int i = 0; i < display_height && (scroll_offset + i) < file_count; i++) {
+            int file_idx = scroll_offset + i;
+            char full_path[PATH_MAX];
+            snprintf(full_path, sizeof(full_path), "%s/%s", current_dir, file_list[file_idx]);
+            
+            struct stat file_stat;
+            gboolean is_dir = (stat(full_path, &file_stat) == 0) && S_ISDIR(file_stat.st_mode);
+            
+            // Highlight selected item
+            if (file_idx == selected_file) {
+                wattron(picker_win, A_REVERSE);
+            }
+            
+            // Show directory indicator and file name
+            if (is_dir) {
+                wattron(picker_win, COLOR_PAIR(5)); // Blue for directories
+                mvwprintw(picker_win, i + 2, 2, "[DIR] %s", file_list[file_idx]);
+                wattroff(picker_win, COLOR_PAIR(5));
+            } else {
+                mvwprintw(picker_win, i + 2, 2, "      %s", file_list[file_idx]);
+            }
+            
+            if (file_idx == selected_file) {
+                wattroff(picker_win, A_REVERSE);
+            }
+        }
+        
+        // Show scroll indicator
+        if (file_count > display_height) {
+            mvwprintw(picker_win, picker_height - 1, picker_width - 10, " %d/%d ", 
+                     selected_file + 1, file_count);
+        }
+        
+        wrefresh(picker_win);
+        
+        // Handle input
+        ch = wgetch(picker_win);
+        
+        switch (ch) {
+            case KEY_UP:
+                if (selected_file > 0) {
+                    selected_file--;
+                }
+                break;
+                
+            case KEY_DOWN:
+                if (selected_file < file_count - 1) {
+                    selected_file++;
+                }
+                break;
+                
+            case KEY_ENTER:
+            case '\n':
+            case '\r':
+                if (file_count > 0) {
+                    char full_path[PATH_MAX];
+                    snprintf(full_path, sizeof(full_path), "%s/%s", current_dir, file_list[selected_file]);
+                    
+                    struct stat file_stat;
+                    if (stat(full_path, &file_stat) == 0) {
+                        if (S_ISDIR(file_stat.st_mode)) {
+                            // Change directory
+                            if (strcmp(file_list[selected_file], "..") == 0) {
+                                // Go to parent directory
+                                char *last_slash = strrchr(current_dir, '/');
+                                if (last_slash && last_slash != current_dir) {
+                                    *last_slash = '\0';
+                                } else {
+                                    strcpy(current_dir, "/");
+                                }
+                            } else {
+                                // Enter subdirectory
+                                if (strlen(current_dir) + strlen(file_list[selected_file]) + 2 < sizeof(current_dir)) {
+                                    if (current_dir[strlen(current_dir) - 1] != '/') {
+                                        strcat(current_dir, "/");
+                                    }
+                                    strcat(current_dir, file_list[selected_file]);
+                                }
+                            }
+                            
+                            // Reload directory
+                            for (int i = 0; i < file_count; i++) {
+                                free(file_list[i]);
+                            }
+                            free(file_list);
+                            
+                            // Reload directory contents (simplified - in practice would be a function)
+                            dir = opendir(current_dir);
+                            if (dir) {
+                                file_count = 0;
+                                while ((entry = readdir(dir)) != NULL) {
+                                    if (strcmp(entry->d_name, ".") != 0) {
+                                        file_count++;
+                                    }
+                                }
+                                rewinddir(dir);
+                                
+                                file_list = malloc(file_count * sizeof(char*));
+                                if (file_list) {
+                                    idx = 0;
+                                    while ((entry = readdir(dir)) != NULL && idx < file_count) {
+                                        if (strcmp(entry->d_name, ".") != 0) {
+                                            file_list[idx] = strdup(entry->d_name);
+                                            idx++;
+                                        }
+                                    }
+                                    selected_file = 0;
+                                    scroll_offset = 0;
+                                }
+                                closedir(dir);
+                            }
+                        } else {
+                            // File selected - return full path
+                            selected_path = strdup(full_path);
+                            goto cleanup;
+                        }
+                    }
+                }
+                break;
+                
+            case 27: // Escape
+            case 'q':
+            case 'Q':
+                // Cancel
+                goto cleanup;
+                
+            default:
+                break;
+        }
+    }
+    
+cleanup:
+    // Cleanup
+    if (file_list) {
+        for (int i = 0; i < file_count; i++) {
+            free(file_list[i]);
+        }
+        free(file_list);
+    }
+    
+    delwin(picker_win);
+    
+    // Refresh main screen after picker closes
+    cli_refresh_all(cli);
+    
+    return selected_path;
+}
+
 static void cli_load_file(ArielCLI *cli)
 {
     if (!cli->plugin_manager || cli->active_plugin_selected < 0) return;
@@ -985,18 +1249,21 @@ static void cli_load_file(ArielCLI *cli)
         return;
     }
     
-    // For now, we'll use a simple hardcoded path - in a full implementation,
-    // this would show a file picker or prompt for input
-    const char *test_file = "/tmp/test.wav"; // Placeholder
+    // Show file picker dialog
+    char *selected_file = cli_file_picker(cli, NULL);
     
-    // Suppress output during plugin operations
-    OutputSuppressor *suppressor = suppress_output();
-    
-    // Load file parameter
-    ariel_active_plugin_set_file_parameter(plugin, test_file);
-    
-    // Restore output
-    restore_output(suppressor);
+    if (selected_file) {
+        // Suppress output during plugin operations
+        OutputSuppressor *suppressor = suppress_output();
+        
+        // Load file parameter
+        ariel_active_plugin_set_file_parameter(plugin, selected_file);
+        
+        // Restore output
+        restore_output(suppressor);
+        
+        free(selected_file);
+    }
     
     g_object_unref(plugin);
 }

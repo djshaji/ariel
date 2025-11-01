@@ -1136,8 +1136,15 @@ int ariel_cli_main(int argc, char **argv)
         ariel_plugin_manager_refresh(g_cli->plugin_manager);
     }
     
+    // Clear screen and ensure proper initial display
+    clear();
+    
     // Initial display - draw everything
     cli_refresh_all(g_cli);
+    
+    // Force initial screen update and display
+    refresh();
+    doupdate();
     
     // Main loop
     while (g_cli->running) {

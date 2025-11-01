@@ -15,6 +15,7 @@ is_windows = host_system == 'windows'
 
 # Dependencies
 gtk4_dep = dependency('gtk4', version : '>= 4.0')
+ncurses_dep = dependency('ncurses', required : false)
 
 # lilv dependency - handle Windows differently due to cross-compilation path issues
 if is_windows
@@ -92,9 +93,24 @@ sources = [
   'src/audio/active_plugin.c'  
 ]
 
+# Add CLI source if ncurses is available
+if ncurses_dep.found()
+  sources += ['src/ariel_cli.c']
+endif
+
 # Add Windows-specific WASAPI source
 if is_windows
   sources += ['src/audio/wasapi_client.c']
+endif
+
+# Prepare dependencies list
+all_deps = [gtk4_dep, lilv_dep, jack_dep]
+
+# Add ncurses dependency if available
+ncurses_args = []
+if ncurses_dep.found()
+  all_deps += ncurses_dep
+  ncurses_args = ['-DHAVE_NCURSES']
 endif
 
 # Windows audio dependencies
@@ -102,9 +118,7 @@ if is_windows
   wasapi_dep = declare_dependency(
     link_args: ['-lole32', '-luuid', '-lwinmm', '-lksuser']
   )
-  all_deps = [gtk4_dep, lilv_dep, jack_dep, wasapi_dep]
-else
-  all_deps = [gtk4_dep, lilv_dep, jack_dep]
+  all_deps += wasapi_dep
 endif
 
 # Build executable
@@ -113,6 +127,7 @@ executable(exe_name,
   sources,
   dependencies : all_deps,
   include_directories : inc,
+  c_args : ncurses_args,
   install : true,
   win_subsystem : is_windows ? 'windows' : 'console'
 )

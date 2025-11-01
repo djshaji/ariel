@@ -264,4 +264,16 @@ void ariel_wasapi_stop(ArielAudioEngine *engine);
 GList *ariel_wasapi_enumerate_devices(gboolean input_devices);
 #endif
 
+// CLI support
+int ariel_cli_main(int argc, char **argv);
+gboolean ariel_should_use_cli(int argc, char **argv);
+
+// Additional ArielPluginInfo functions needed for CLI
+const LilvPlugin *ariel_plugin_info_get_plugin(ArielPluginInfo *plugin_info);
+LilvWorld *ariel_plugin_info_get_world(ArielPluginInfo *plugin_info);
+
+// Additional ArielActivePlugin functions needed for CLI
+ArielPluginInfo *ariel_active_plugin_get_plugin_info(ArielActivePlugin *active_plugin);
+void ariel_active_plugin_set_active(ArielActivePlugin *active_plugin, gboolean active);
+
 #endif // ARIEL_H

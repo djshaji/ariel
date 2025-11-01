@@ -387,13 +387,20 @@ ariel_load_custom_css(void)
 }
 
 int
-main(int argc, char *argv[])
+main(int argc, char **argv)
 {
     ArielApp *app;
     int status;
+
+#ifdef HAVE_NCURSES
+    // Check if CLI mode is requested
+    if (ariel_should_use_cli(argc, argv)) {
+        return ariel_cli_main(argc, argv);
+    }
+#endif
     
 #ifdef _WIN32
-    BOOL console_allocated = FALSE;
+    gboolean console_allocated = FALSE;
 #endif
     
     // Windows-specific initialization safety checks

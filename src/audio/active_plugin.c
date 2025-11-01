@@ -1109,3 +1109,29 @@ ariel_active_plugin_process_ui_messages(ArielActivePlugin *plugin)
         }
     }
 }
+
+// Additional functions for CLI support
+ArielPluginInfo *
+ariel_active_plugin_get_plugin_info(ArielActivePlugin *plugin)
+{
+    if (!plugin) return NULL;
+    
+    // Return a reference to the plugin info (caller should unref when done)
+    if (plugin->plugin_info) {
+        g_object_ref(plugin->plugin_info);
+    }
+    
+    return plugin->plugin_info;
+}
+
+void
+ariel_active_plugin_set_active(ArielActivePlugin *plugin, gboolean active)
+{
+    if (!plugin) return;
+    
+    if (active && !plugin->active) {
+        ariel_active_plugin_activate(plugin);
+    } else if (!active && plugin->active) {
+        ariel_active_plugin_deactivate(plugin);
+    }
+}

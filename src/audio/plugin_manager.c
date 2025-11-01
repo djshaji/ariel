@@ -804,6 +804,15 @@ ariel_plugin_info_get_plugin(ArielPluginInfo *info)
     return info->plugin;
 }
 
+LilvWorld *
+ariel_plugin_info_get_world(ArielPluginInfo *info)
+{
+    g_return_val_if_fail(ARIEL_IS_PLUGIN_INFO(info), NULL);
+    // Return the global world instance from plugin manager
+    // This is a workaround since ArielPluginInfo doesn't store world directly
+    return NULL; // Will be accessed through plugin manager instead
+}
+
 ArielPluginManager *
 ariel_plugin_manager_new(void)
 {
